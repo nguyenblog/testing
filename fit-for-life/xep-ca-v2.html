@@ -1136,11 +1136,11 @@ function schTable(rows){
 function diagram(){
   const A=(x1,y1,x2,y2)=>`<line class="ar" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" marker-end="url(#ah)"/>`;
   const B=(x,y,w,h,t,sub,cls='')=>`<rect class="bx ${cls}" x="${x}" y="${y}" width="${w}" height="${h}" rx="8"/><text class="t" x="${x+12}" y="${y+20}">${t}</text>${(sub||[]).map((s,i)=>`<text class="s" x="${x+12}" y="${y+37+i*15}">${s}</text>`).join('')}`;
-  const ins=[['Hồ sơ PT','studio khai'],['Phiếu PT tuần','PT nộp giờ rảnh'],['Gói tập','môn, loại lớp, số buổi'],['Hồ sơ khách','vấn đề, từ CRM'],['Phiếu khách tuần','giờ rảnh, PT muốn'],['Bộ rule tuần','bật/tắt, thứ tự']];
+  const ins=[['Hồ sơ PT','studio khai'],['Lịch trực HLV','khung giờ + môn'],['Gói tập','môn, loại lớp, số buổi'],['Hồ sơ khách','vấn đề, từ CRM'],['Phiếu khách tuần','giờ rảnh, PT muốn'],['Bộ rule tuần','bật/tắt, thứ tự']];
   let g=`<text class="t" x="16" y="24">Đầu vào</text>`;
   ins.forEach(([t,s],i)=>{const y=36+i*62;g+=B(16,y,170,48,t,[s],i===5?'w':'');g+=`<line class="ar" x1="186" y1="${y+24}" x2="204" y2="${y+24}"/>`});
   g+=`<line class="ar" x1="204" y1="60" x2="204" y2="370"/>`+A(204,215,234,215);
-  g+=B(234,150,180,130,'1. Chuẩn bị',['Lưới 7 ngày, mốc 30 phút','Nạp ca đã xếp trong tháng','Xếp thứ tự khách:','chọn PT trước,','ít ô rảnh trước']);
+  g+=B(234,150,180,130,'1. Chuẩn bị',['Lưới 7 ngày, mốc 30 phút','Kiểm lịch trực HLV','Nạp ca đã xếp trong tháng','Xếp khách: chọn PT trước,','rồi ít giờ rảnh trước']);
   g+=A(414,215,452,215);
   g+=`<rect class="lp" x="452" y="30" width="290" height="400" rx="12"/><text class="t" x="466" y="52">2. Lặp: từng buổi của từng khách</text>`;
   const inner=[['Lọc rule nền N1–N4',['đúng môn, hai bên rảnh, ca còn chỗ']],['Lọc rule giới hạn G1–G6',['chỉ rule đang bật']],['U1 PT khách chọn',['PT bận thì thử hoán đổi']],['Chọn theo rule ưu tiên',[UORD.filter(id=>id!=='U1').join(' → ')]],['Ghi ca + nhãn rule',['edge case → gán tạm T1–T7']]];
@@ -1161,18 +1161,43 @@ function diagram(){
   g+=A(1091,248,1091,272);
   g+=B(996,272,190,44,'Bản v2, v3… (thực tế)',[],'k');
   g+=A(1091,316,1091,346);
-  g+=B(996,346,190,64,'Bảng chỉ số',['so Máy · Chốt · Thực tế','lệch theo tiêu chí, lý do']);
+  g+=B(996,346,190,64,'Bảng chỉ số',['so Máy · Chốt · Thực tế','và lịch DN (shadow)']);
+  g+=B(780,370,170,50,'Shadow mode',['lịch DN xếp tay, thread CS'],'w')+A(950,395,996,395);
   return `<figure><div class="dg"><svg viewBox="0 0 1200 440" role="img" aria-label="Luồng máy xếp ca: 6 nguồn đầu vào, chuẩn bị, vòng lặp lọc rule và chọn PT cho từng buổi, rà cuối, ra bản máy xếp, CS chốt thành v1, đổi trong tuần thành v2, v3, rồi so ba bản trong bảng chỉ số.">
    <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker></defs>${g}</svg></div>
    <figcaption>Máy chỉ quyết ở bước 1–3. Từ bước 4, người quyết là CS, máy chỉ đưa phương án và ghi lại. Bộ rule tuần được lưu kèm lịch nên bước 5 vẫn xếp hạng phương án theo đúng rule đã dùng lúc đầu tuần.</figcaption></figure>`;
 }
+
+// Độ khớp với thực tế, theo đối chiếu ảnh lịch trực, lịch buổi tập và thread CS tuần 21/09 – 04/10.
+const FIT=[
+  ['Lưới thời gian','Buổi 60 phút, bắt đầu :00 hoặc :30','Ca 1 tiếng, có ca :30; khung trực lẻ 15 phút','ok'],
+  ['Khung trực HLV','Khung tới phút, ghi môn theo khung','Khung theo môn (Gym/Pilates), nghỉ tuần, nghỉ phép','ok'],
+  ['Giới hạn HLV','Giờ dạy/ngày, buổi liền, ca gãy; cảnh báo giờ trực/ngày, /tuần, số HLV có mặt','Ô đỏ khi quá giờ (10,3h/ngày, 54h/tuần), tối thiểu 2 HLV/ngày','part'],
+  ['Rule tính buổi khi huỷ','Tab Đọc thread CS: ≥ 3h không tính, < 2h tính','Khớp 16/17 ca thật; 1 ngoại lệ "huỷ lần đầu gói mới"; khoảng 2–3h chưa rõ','part'],
+  ['Loại lớp','1-1, 1-2','Có cả 1-4, Gym 1-2, ghép chéo gói (1-2′)','no'],
+  ['Lớp nhóm','Máy ghép khách lúc xếp','Lớp cố định có ghế trống, cần sĩ số tối thiểu mới chạy','no'],
+  ['Nguồn khách mỗi tuần','Phiếu giờ rảnh mỗi tuần, xếp từ đầu','Chủ yếu lịch cố định lặp lại + đổi qua thread (chưa xác nhận)','ask'],
+  ['Thay đổi trong tuần','Đổi 1 buổi, huỷ ghi buổi nợ, bắt buộc lý do','Báo huỷ (tính/không tính), vắng, studio huỷ lớp, đặt mới; HLV 👍 xác nhận','part'],
+  ['Giờ bận khác','Chưa có','BLOCK, họp, sự kiện chiếm giờ HLV','no'],
+  ['Rule ưu tiên (PT khách chọn, chuyên môn, tỉ lệ ca)','Có, giải thích được trên từng ca','Chưa có dữ liệu để kiểm, cần shadow','ask'],
+];
+const FITC={ok:['Khớp','ok'],part:['Một phần','w'],no:['Chưa có','bad'],ask:['Chờ kiểm','']};
 function sysTab(){
   const p=PTS[0],P=PTS[0],c=CL.find(x=>x.issue&&!x.pref)||CL[0],cp=CL.find(x=>x.pref)||CL[0];
   const srcChip=r=>{const[t,k]=SRC[r.src];return`<span class="chip ${k}">${t}</span>`};
   const ruleRows=g=>(g==='U'?UORD.map(id=>RB[id]):RULES.filter(r=>r.g===g)).map(r=>`<tr><td><code>${r.id}</code></td><td><b>${r.name}</b><br><small class="muted">${r.full}</small></td><td>${srcChip(r)}<br><small class="faint">${esc(r.ref)}</small></td></tr>`).join('');
   const TACT={T1:'Gán PT khác, gợi ý ô để CS hỏi khách kia đổi',T2:'Gán PT khác',T3:'Gán PT khác chuyên môn, nêu PT đúng chuyên môn nếu có',T4:'Gán, đánh dấu không khuyến nghị',T5:'Giữ lớp, CS quyết ghép thêm hay dạy như 1-1',T6:'Gán PT theo ca',T7:'Lấy theo thứ tự, CS xem lại',T9:'Không gán, gợi ý nới 1 rule',HD:'Dời khách, báo nếu khách bị dời mất PT phù hợp'};
   return `<div class="sys fade">
-  <section><h2>Hệ thống chạy thế nào</h2><p class="lead">Trang này dành cho PM: dữ liệu nào đi vào, máy xử lý theo thứ tự nào, lưu lại những gì. Các bảng rule, mã gán tạm và chỉ số bên dưới đọc trực tiếp từ code của demo, nên luôn khớp với bản đang chạy.</p>${diagram()}</section>
+  <section><h2>Hệ thống chạy thế nào</h2><p class="lead">Trang này dành cho PM: dữ liệu nào đi vào, máy xử lý theo thứ tự nào, lưu lại những gì. Các bảng rule, mã gán tạm và chỉ số bên dưới đọc trực tiếp từ code của demo, nên luôn khớp với bản đang chạy.</p>
+   <div class="sch" style="margin-top:14px">
+    <div><h3>Máy làm gì</h3><p style="font-size:14px">Đề xuất lịch tuần cho CS: lọc theo luật cứng, chọn HLV theo thứ tự ưu tiên FFL đặt, ghi rõ rule nào quyết định từng buổi. Chỗ nào thiếu rule thì gán tạm và đưa vào danh sách chờ CS chốt. Sau khi chốt, ghi lại mọi thay đổi trong tuần và đo lệch theo từng tiêu chí.</p></div>
+    <div><h3>Đang ở đâu</h3><p style="font-size:14px">Demo chạy được đủ luồng trên dữ liệu mẫu và dữ liệu tự nhập. Đã khớp thực tế ở lưới thời gian, khung trực HLV và rule tính buổi khi huỷ. <b>Chưa khớp lớp 1-4 có ghế trống và cách FFL giữ lịch cố định</b>, nên chưa shadow được trên tuần thật.</p></div>
+    <div><h3>Cần FFL quyết</h3><p style="font-size:14px">Khách có gửi giờ rảnh mỗi tuần không, hay giữ lịch cố định? Sĩ số tối thiểu lớp nhóm. Huỷ trong khoảng 2–3h có tính buổi không. Trần giờ trực HLV. Thứ tự rule ưu tiên.</p></div>
+   </div>${diagram()}</section>
+
+  <section><h2>Độ khớp với thực tế</h2><p class="lead">Đối chiếu với ảnh lịch trực, lịch buổi tập và thread đổi lịch của FFL tuần 21/09 – 04/10.</p>
+   <div class="tw" style="margin-top:10px"><table><tr><th>Khâu</th><th>Máy hiện tại</th><th>Thực tế FFL</th><th>Trạng thái</th></tr>
+   ${FIT.map(([k,m,t,st])=>`<tr><td><b>${k}</b></td><td>${m}</td><td>${t}</td><td><span class="chip ${FITC[st][1]}">${FITC[st][0]}</span></td></tr>`).join('')}</table></div></section>
 
   <section><h2>Schema đầu vào</h2><p class="lead">Tên trường theo bản thiết kế. Hồ sơ PT, gói tập và hồ sơ khách đổi ít; hai phiếu tuần nộp lại mỗi tuần.</p><div class="sch">
    <div><h3>Hồ sơ PT <small>studio khai, đổi khi deal đổi</small></h3>${schTable([
@@ -1181,12 +1206,15 @@ function sysTab(){
     ['loai_lop_chuyen[]','1-1 · 1-2','So với loại lớp của gói ở U3',p.fit.join(', ')],['ca_thang_deal','số','Mẫu số tỉ lệ ca (U5)',p.deal],
     ['ca_thang_max','số, có thể trống','G3',p.monthMax??'trống'],['ca_ngay_max','giờ dạy/ngày','G2',p.dayMax],['gio_truc_ngay_max','giờ, mặc định 10','Cảnh báo lịch trực',p.dutyDayMax],['gio_truc_tuan_max','giờ, mặc định 48','Cảnh báo lịch trực',p.dutyWeekMax],['ca_lien_tuc_max','số, mặc định 3','G4',p.runMax],
     ['nghi_sau_chuoi','số ca, mặc định 1','G4',p.rest],['ca_gay_min','giờ, mặc định 4','G5',p.gapMin]])}</div>
-   <div><h3>Phiếu PT tuần <small>PT nộp mỗi tuần</small></h3>${schTable([['pt_id','mã','',p.id],['tuan','ngày thứ 2','',DAYS[0]],['khung_truc[]','danh sách (ngày, giờ:phút–giờ:phút, môn)','Buổi 60 phút phải nằm gọn trong khung, đúng môn của khung (N3). Dùng để tính giờ trực',P.avTxt],['nghi[]','danh sách ngày','PT báo nghỉ','']])}
+   <div><h3>Lịch trực HLV <small>quản lý xếp mỗi tuần</small></h3>${schTable([['pt_id','mã','',p.id],['tuan','ngày thứ 2','',DAYS[0]],['khung_truc[]','danh sách (ngày, giờ:phút–giờ:phút, môn)','Buổi 60 phút phải nằm gọn trong khung, đúng môn của khung (N3). Dùng để tính giờ trực',P.avTxt],['nghi[]','danh sách ngày','PT báo nghỉ','']])}
     <h3 style="margin-top:16px">Gói tập <small>khách chốt khi mua gói</small></h3>${schTable([['goi_tap_id','mã','',''],['kh_id','mã','',c.id],['mon','môn','N1',c.kind],['loai_lop','1-1 · 1-2','U3, N4 (lớp ghép)',c.cls],['so_buoi_con_lai','số','Chưa dùng trong demo','']])}</div>
    <div><h3>Hồ sơ khách <small>lấy từ CRM theo mã KH</small></h3>${schTable([['kh_id','mã','',c.id],['ten','chuỗi','',c.name],['van_de[]','danh sách vấn đề','U2, cảnh báo T3. Demo dùng dữ liệu giả',c.issue]])}</div>
-   <div><h3>Phiếu khách tuần <small>khách gửi mỗi tuần</small></h3>${schTable([['kh_id','mã','',cp.id],['goi_tap_id','mã','Lấy môn và loại lớp từ gói',''],['so_buoi','số','Số buổi muốn tập tuần này',cp.n],['o_ranh[]','khoảng hoặc giờ bắt đầu cụ thể','N2. Ví dụ "T2 7-9" hoặc "T2,T4 7,8h30"',avTxt(cp.av)],['pt_muon_id','mã, có thể trống','U1. Khách chọn PT được xếp trước',cp.pref?PB[cp.pref].name:'trống'],['ghi_chu','chuỗi','CS đọc, máy không dùng','']])}</div>
+   <div><h3>Phiếu khách tuần <small>chưa chắc FFL có thu, đang hỏi</small></h3>${schTable([['kh_id','mã','',cp.id],['goi_tap_id','mã','Lấy môn và loại lớp từ gói',''],['so_buoi','số','Số buổi muốn tập tuần này',cp.n],['o_ranh[]','khoảng hoặc giờ bắt đầu cụ thể','N2. Ví dụ "T2 7-9" hoặc "T2,T4 7,8h30"',avTxt(cp.av)],['pt_muon_id','mã, có thể trống','U1. Khách chọn PT được xếp trước',cp.pref?PB[cp.pref].name:'trống'],['ghi_chu','chuỗi','CS đọc, máy không dùng','']])}</div>
    <div><h3>Bộ rule lần xếp <small>FFL chỉnh trước khi bấm xếp</small></h3>${schTable([['rule_id','mã','N, G, U như bảng dưới','U2'],['bat','có/không','Rule N luôn bật',''],['thu_tu','số','Chỉ rule U',UORD.join(' → ')],['tham_so','theo rule','Phần lớn lấy từ hồ sơ PT','']])}
     <p class="cap">Bộ rule được chụp lại và lưu kèm lịch tuần đó.</p></div>
+   <div><h3>Lịch DN xếp tay <small>shadow mode, tuỳ chọn</small></h3>${schTable([['kh','tên khách','Khớp bảng khách',''],['ngay','T2…CN','',''],['gio','giờ bắt đầu',':00 hoặc :30','7h30'],['pt','tên HLV','Khớp bảng PT','']])}
+    <p class="cap">Dùng để so với bản máy xếp ở bước 4 (cột "Lịch DN", dòng "Máy trùng lịch DN").</p></div>
+   <div><h3>Thread CS <small>dán nguyên văn từ Lark/Zalo</small></h3>${schTable([['tac_gia, gio_dang','dòng tên + "Sep 25, 3:24 PM"','Giờ báo dự phòng',''],['dong_buoi','"T7 (26/9) 17h - Pilates 1-4 A + B + () - HLV @X => …"','Buổi, lớp, khách, ghế trống, HLV, lớp sau khi đổi',''],['dong_huy','"A huỷ" · "ko đến ko báo" · "bị huỷ do ko đủ"','Ai huỷ, loại huỷ',''],['ly_do, tgian_bao','"Lý do: …", "Tgian báo: T7 26/9 13h19"','Tính số giờ báo trước',''],['ket_qua','"Tính buổi tính comm" / "Ko tính buổi"','So với rule tính buổi','']])}</div>
   </div></section>
 
   <section><h2>Máy xử lý từng buổi</h2><ol class="alg">
@@ -1208,15 +1236,39 @@ function sysTab(){
   </div></section>
 
   <section><h2>Schema đầu ra</h2><div class="sch">
-   <div><h3>Ca tập</h3>${schTable([['ca_id','mã','',''],['pt_id, ngay, gio','','Một PT một giờ chỉ một ca',''],['mon, loai_lop','','Không trộn loại lớp trong 1 ca',''],['suc_chua','1 · 2','Lớp 1-2 tính 1 ca khi đếm ca PT',''],['buoi[]','danh sách Buổi','1 hoặc 2 khách','']])}</div>
+   <div><h3>Ca tập</h3>${schTable([['ca_id','mã','',''],['pt_id, ngay, gio_bat_dau','phút từ 0h','Buổi 60 phút. HLV không có 2 buổi chồng giờ',''],['mon, loai_lop','','Không trộn loại lớp trong 1 ca',''],['suc_chua','1 · 2','Lớp 1-2 tính 1 ca khi đếm ca PT',''],['buoi[]','danh sách Buổi','1 hoặc 2 khách','']])}</div>
    <div><h3>Buổi <small>một khách trong một ca</small></h3>${schTable([['kh_id','mã','',''],['rule_quyet_dinh','mã rule','Hiện dưới tên khách trên lịch','U2'],['trang_thai','xếp theo rule · gán tạm · CS chốt · CS đổi','',''],['canh_bao[]','mã T + nội dung + gợi ý','Vào danh sách chờ CS',''],['dau_vet','số lựa chọn, rule đã cắt, các bước lọc','Phần "Máy đã xét thế nào"',''],['ly_do','chuỗi','Khi CS đổi','']])}</div>
    <div><h3>Bản lịch</h3>${schTable([['ban','máy · v1 · v2…','v1 là bản gửi khách và PT',''],['ca[]','danh sách Ca tập','Bản chụp toàn tuần',''],['bo_rule','Bộ rule lần xếp','Mở lại tuần cũ vẫn giải thích được','']])}</div>
    <div><h3>Lịch sử thay đổi</h3>${schTable([['ban','số','',''],['giai_doan','trước chốt · trong tuần','',''],['kh_id, tu, sang','','Sang trống nghĩa là huỷ, ghi buổi nợ',''],['ly_do','khách yêu cầu · PT xin đổi · CS thấy hợp hơn · khác','Bắt buộc',''],['anh_huong','chỉ số → mức thay đổi','Dùng cho bảng lệch','']])}</div>
+   <div><h3>Sự kiện từ thread</h3>${schTable([['loai','huỷ · vắng/báo sau giờ · studio huỷ lớp · đặt lịch · trial','',''],['buoi, lop, hlv, khach','','Từ dòng buổi',''],['bao_truoc','giờ (âm = sau giờ tập)','Tính từ giờ báo hoặc giờ đăng',''],['ghi_nhan','tính / không tính','Theo chữ trong thread',''],['theo_rule','khớp · lệch · chưa có rule','So với ngưỡng đang đặt','']])}</div>
   </div></section>
 
   <section><h2>Chỉ số so 3 bản</h2><div class="tw"><table><tr><th>Chỉ số</th><th>Cách tính</th><th>Tốt khi</th></tr>${MET.map(m=>`<tr><td><b>${m.name}</b></td><td>${m.sub||'mọi buổi'}</td><td>${m.up?'cao':'thấp'}</td></tr>`).join('')}<tr><td><b>Giữ nguyên lịch</b></td><td>buổi còn đúng ô và PT so với bản trước</td><td>cao</td></tr></table></div></section>
 
-  <section><h2>Demo chưa làm</h2><p class="lead">Lớp 1-4 · ca 45/90 phút hoặc lệch giờ · lịch cố định hằng tuần · gói hết giữa tuần · buổi bù · nối CRM thật · hạn chót và số lần đổi lịch (chờ FFL trả lời).</p></section>
+  <section><h2>Kiểm thử</h2><div class="tw" style="margin-top:10px"><table><tr><th>Tầng</th><th>Làm gì</th><th>Cần gì</th><th>Trạng thái</th></tr>
+   <tr><td><b>1. Test tự động</b></td><td>Mỗi luật một tình huống nhỏ với kết quả mong đợi; chạy lại mỗi lần sửa code (<code>node fit-for-life/tests/run.js</code>)</td><td>Không cần FFL</td><td><span class="chip ok">18/18 đạt</span></td></tr>
+   <tr><td><b>2. Soi rule trên lịch thật</b></td><td>Đưa lịch và thread FFL đã có vào, máy chỉ kiểm lịch thật phạm rule nào, bao nhiêu lần. Rule bị phạm thường xuyên là rule sai hoặc thiếu ngoại lệ</td><td>Lịch, lịch trực, thread 2–4 tuần cũ</td><td><span class="chip w">Đã làm rule tính buổi: 16/17 khớp</span></td></tr>
+   <tr><td><b>3. Shadow song song</b></td><td>2–4 tuần: máy xếp đầu tuần, CS vẫn xếp tay. Cuối tuần so hai bản; CS dán nhãn từng chỗ khác: máy sai / thiếu rule / đều được / máy hợp lý hơn</td><td>Đầu vào thật mỗi tuần</td><td><span class="chip">Chờ lớp 1-4 và lịch cố định</span></td></tr>
+   </table></div>
+   <p class="cap">Tiêu chí đề xuất để dùng thật (FFL cần duyệt): 0 lần phạm rule cứng; trùng ≥ 70% buổi với lịch DN hoặc phần khác được CS dán nhãn "đều được / máy hợp lý hơn"; gán tạm dưới 30%; CS giảm số phút xếp lịch mỗi tuần.</p></section>
+
+  <section><h2>Lộ trình</h2><div class="tw" style="margin-top:10px"><table><tr><th>Ưu tiên</th><th>Việc</th><th>Vì sao</th></tr>
+   <tr><td><span class="chip bad">P0</span></td><td>Lớp 1-4 và lớp cố định có ghế trống, sĩ số tối thiểu</td><td>Phần lớn lớp Pilates thật là 1-4; chưa có thì không shadow được</td></tr>
+   <tr><td><span class="chip bad">P0</span></td><td>Xếp tiếp từ lịch tuần trước (nếu FFL xác nhận khách giữ lịch cố định)</td><td>Quyết định máy chạy "xếp từ đầu" hay "giữ lịch cũ, xếp phần thay đổi"</td></tr>
+   <tr><td><span class="chip w">P1</span></td><td>Báo huỷ ở bước 4: tự tính buổi/comm theo giờ báo, mở ghế trống, tự huỷ lớp dưới sĩ số</td><td>Khớp cách CS đang làm trong thread</td></tr>
+   <tr><td><span class="chip w">P1</span></td><td>Giờ bận khác (BLOCK, họp), ghép chéo gói 1-2′, HLV xác nhận, chỉ số comm theo HLV</td><td>Khớp lịch thật</td></tr>
+   <tr><td><span class="chip">P2</span></td><td>Đọc file xuất từ công cụ lịch; vấn đề sức khoẻ từ ghi chú trial; đổi gói 4:1; buổi bù</td><td>Bớt nhập tay, đủ dữ liệu cho rule chuyên môn</td></tr>
+   </table></div></section>
+
+  <section><h2>Câu hỏi chờ FFL</h2><ol class="alg">
+   <li><b>Khách có gửi giờ rảnh mỗi tuần không, hay giữ lịch cố định và chỉ báo khi đổi?</b><small>Ảnh hưởng lớn nhất: quyết định cách máy chạy.</small></li>
+   <li>Lớp nhóm cần tối thiểu mấy khách mới chạy?<small>Thread cho thấy lớp 1-4 còn 1 khách bị huỷ; lớp 1-2 còn 1 khách vẫn chạy.</small></li>
+   <li>Huỷ trong khoảng 2–3h trước giờ tập có tính buổi không? "Huỷ lần đầu của gói mới" áp dụng thế nào?</li>
+   <li>Trần giờ trực HLV mỗi ngày, mỗi tuần? Tối thiểu HLV mỗi môn theo khung giờ?</li>
+   <li>BLOCK là gì? Các viết tắt NT, NP, ĐT, TBC?</li>
+   <li>Thứ tự rule ưu tiên (PT khách chọn → loại lớp → chuyên môn → ghép lớp → tỉ lệ ca → dồn ca) có đúng ý FFL không?</li>
+   <li>Lịch buổi tập đang ở công cụ nào, có xuất file được không?</li>
+  </ol></section>
   </div>`;
 }
 
