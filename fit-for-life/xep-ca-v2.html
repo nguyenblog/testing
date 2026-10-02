@@ -202,6 +202,25 @@ th.hd,td.hd{border-left:2px solid var(--line)}
 .br b{text-align:right;font-variant-numeric:tabular-nums}
 table.ros td.over{color:var(--bad);font-weight:600;background:var(--bad-soft)}
 .mg i{height:4px}.mg .h{height:4px}
+.tl{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:12px 0 4px}
+.tl div{border-top:3px solid var(--accent);padding:6px 2px 0;font-size:13px}
+.tl b{display:block;font-size:13.5px}.tl span{color:var(--muted)}
+.phones{display:flex;gap:20px;flex-wrap:wrap;margin-top:8px}
+.phone{width:100%;max-width:340px;border:1px solid var(--line);border-radius:24px;padding:18px 16px;background:var(--soft);font-size:13.5px}
+.phone .ph{font-weight:600;font-size:15px;margin-bottom:12px}
+.fld{margin-bottom:12px}.fld>label{display:block;font-weight:500;margin-bottom:5px}.fld small{color:var(--muted);font-weight:400}
+.rq{color:var(--bad)}
+.inp{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 10px}.inp.ph2{color:var(--faint)}
+.opts{display:flex;gap:6px;flex-wrap:wrap}
+.op{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:3px 11px;font-size:12.5px}
+.op.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.win{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:5px 8px;margin-bottom:5px;font-variant-numeric:tabular-nums}
+.add{font-size:12.5px;color:var(--accent)}
+.fgrid{display:grid;grid-template-columns:38px repeat(7,1fr);gap:2px;font-size:11px}
+.fgrid .d{text-align:center;color:var(--muted)}.fgrid .h{color:var(--faint);text-align:right;padding-right:4px}
+.fgrid i{height:16px;border-radius:3px;background:var(--bg);border:1px solid var(--line)}.fgrid i.on{background:var(--accent);border-color:var(--accent)}
+.sumr{font-size:13px;margin:4px 0 12px}
+.btn{background:var(--ink);color:var(--bg);text-align:center;border-radius:10px;padding:9px;font-weight:600}
 .theme{position:fixed;bottom:12px;right:12px;font-size:12px;border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;padding:5px 12px;cursor:pointer;z-index:6}
 .theme:hover{color:var(--ink)}
 </style>
@@ -1182,6 +1201,74 @@ const FIT=[
   ['Rule ưu tiên (PT khách chọn, chuyên môn, tỉ lệ ca)','Có, giải thích được trên từng ca','Chưa có dữ liệu để kiểm, cần shadow','ask'],
 ];
 const FITC={ok:['Khớp','ok'],part:['Một phần','w'],no:['Chưa có','bad'],ask:['Chờ kiểm','']};
+
+// Ai điền gì: góc nhìn người điền, không phải tên trường. [câu hỏi hiển thị, cách nhập, bắt buộc, máy dùng để]
+const WHO=[
+  {who:'Khách',when:'Mỗi tuần, trước hạn chót (giả định: T6 18h tuần trước)',note:'Không hỏi lại môn, loại lớp hay vấn đề sức khoẻ: lấy từ gói tập và hồ sơ.',rows:[
+    ['Số điện thoại hoặc mã khách','tự điền nếu mở từ link riêng','Có','Nhận ra khách, lấy gói và hồ sơ'],
+    ['Gói tập dùng tuần này','chọn trong các gói đang còn buổi (hiện số buổi còn)','Có','Môn (N1), loại lớp (U3)'],
+    ['Tuần này muốn tập mấy buổi?','chọn 1 … số buổi còn lại','Có','Số buổi cần xếp'],
+    ['Giữ lịch như tuần trước?','Giữ nguyên / Đổi một số buổi','Có','Lịch cố định (chờ FFL xác nhận cách làm)'],
+    ['Giờ có thể tập','bấm chọn ô trên lưới T2–CN, mỗi ô 30 phút; nên chọn nhiều hơn số buổi','Có','Giờ rảnh (N2)'],
+    ['Muốn tập với HLV nào?','chọn trong HLV dạy môn đó, hoặc "Ai cũng được"','Không','PT khách chọn (U1)'],
+    ['Ghi chú cho CS','chữ tự do','Không','CS đọc; máy không dùng'],
+  ]},
+  {who:'Khách (một lần, CS ghi giúp)',when:'Khi trial hoặc mua gói',note:'Thông tin sức khoẻ là dữ liệu nhạy cảm: cần khách đồng ý cho lưu và chỉ CS, HLV phụ trách được xem.',rows:[
+    ['Mục tiêu tập','chọn nhiều: giảm cân, tăng cơ, giảm đau…','Không','Ghi chú cho HLV'],
+    ['Vấn đề sức khoẻ, chấn thương','chọn trong danh mục (cột sống, sau sinh, vai gáy…) + ghi thêm','Không','Chuyên môn (U2), cảnh báo T3'],
+    ['Gói: môn, loại lớp, số buổi','CS chọn khi chốt gói','Có','N1, U3, số buổi còn lại'],
+    ['Đồng ý lưu thông tin sức khoẻ','có / không','Có','Không đồng ý thì không dùng U2'],
+  ]},
+  {who:'HLV',when:'Mỗi tuần, trước hạn chót (giả định: T5 tuần trước); quản lý duyệt',note:'Khung trực chính là "giờ rảnh" của HLV với máy. Quản lý duyệt để đảm bảo đủ người mỗi ngày.',rows:[
+    ['Khung có thể dạy từng ngày','giờ bắt đầu – kết thúc, tới 15 phút; mỗi khung chọn môn','Có','Trong khung trực (N3), giờ trực/ngày, /tuần'],
+    ['Ngày nghỉ tuần, nghỉ phép','chọn ngày','Không','Không xếp ngày đó'],
+    ['Giờ bận khác (BLOCK, họp)','khoảng giờ + lý do','Không','Chưa dùng (lộ trình P1)'],
+    ['Khoảng nghỉ tối thiểu giữa 2 khung','số giờ (3h, 4h, 6h…)','Không','Ca gãy (G5); FFL: HLV tự quyết'],
+    ['Ghi chú','chữ tự do','Không','Quản lý đọc'],
+  ]},
+  {who:'Quản lý studio',when:'Khi tuyển HLV hoặc đổi deal; bộ rule mỗi lần xếp',note:'Phần lớn là tham số riêng từng HLV theo FFL 3.2.',rows:[
+    ['Môn dạy, chuyên môn, loại lớp hợp','chọn trong danh mục','Có','N1, U2, U3'],
+    ['Hợp đồng','full-time / part-time / theo ca','Có','G6'],
+    ['Deal ca/tháng, trần ca/tháng','số','Có / Không','Tỉ lệ ca (U5), G3'],
+    ['Trần giờ dạy/ngày, buổi liền tối đa','số','Không (có mặc định)','G2, G4'],
+    ['Trần giờ trực/ngày, /tuần; tối thiểu HLV/ngày','số','Không (có mặc định)','Cảnh báo lịch trực'],
+    ['Bộ rule tuần này','bật/tắt, đổi thứ tự ở bước 2','Có','Toàn bộ lần xếp, lưu kèm lịch'],
+  ]},
+  {who:'CS',when:'Sau khi máy xếp, và suốt tuần',note:'Hiện CS ghi báo huỷ trong thread chat; nên chuyển thành form để số liệu tính buổi, comm chắc chắn.',rows:[
+    ['Chốt ca gán tạm','giữ phương án máy / đổi','Có','Bản chốt v1'],
+    ['Đổi lịch','chọn phương án máy đưa + lý do','Có','Bản v2, v3…; bảng lệch'],
+    ['Báo huỷ','khách, buổi, lý do, giờ khách báo','Có','Tính buổi / comm theo giờ báo'],
+    ['Khách vắng không báo','đánh dấu trên buổi','Có','Tính buổi'],
+  ]},
+];
+const TIMELINE=[['T5','HLV nộp khung trực'],['T6 18h','Khách gửi phiếu tuần'],['T6 tối','Máy xếp, CS xử lý gán tạm'],['T7','CS chốt bản v1'],['CN','Gửi lịch cho khách và HLV'],['Trong tuần','CS đổi lịch, báo huỷ']];
+function formMock(){
+  const cell=(on)=>`<i class="${on?'on':''}"></i>`;
+  const kGrid=(()=>{let h='<div class="fgrid"><span></span>'+DOWS.map(d=>`<span class="d">${d}</span>`).join('');
+    [['7h',[1,0,1,0,1,0,0]],['7h30',[1,0,1,0,1,0,0]],['8h',[1,0,1,0,1,1,0]],['…',[0,0,0,0,0,0,0]],['18h',[0,1,0,1,0,0,0]],['18h30',[0,1,0,1,0,0,0]]]
+      .forEach(([t,r])=>{h+=`<span class="h">${t}</span>`+r.map(cell).join('')});return h+'</div>'})();
+  const field=(lab,body,req)=>`<div class="fld"><label>${lab}${req?' <b class="rq">*</b>':''}</label>${body}</div>`;
+  const opts=(xs,sel)=>`<div class="opts">${xs.map((x,i)=>`<span class="op${i===sel?' on':''}">${x}</span>`).join('')}</div>`;
+  const khach=`<div class="phone" aria-label="Form mẫu phiếu tuần của khách"><div class="ph">Phiếu tập tuần ${weekLabel()}</div>
+    ${field('Số điện thoại','<div class="inp">09•• ••• 123</div>',1)}
+    ${field('Gói tập','<div class="inp">Pilates 1-1 · còn 7 buổi ▾</div>',1)}
+    ${field('Tuần này muốn tập mấy buổi?',opts(['1','2','3','4'],2),1)}
+    ${field('Giữ lịch như tuần trước?',opts(['Giữ nguyên','Đổi một số buổi'],1),1)}
+    ${field('Giờ có thể tập <small>chọn nhiều hơn số buổi</small>',kGrid,1)}
+    ${field('Muốn tập với HLV nào?',opts(['Ai cũng được','HLV Vy','HLV Linh'],1))}
+    ${field('Ghi chú cho CS','<div class="inp ph2">Ví dụ: T4 có thể đến trễ 15 phút</div>')}
+    <div class="btn">Gửi phiếu</div></div>`;
+  const hlv=`<div class="phone" aria-label="Form mẫu lịch trực tuần của HLV"><div class="ph">Lịch trực tuần ${weekLabel()}</div>
+    ${field('HLV','<div class="inp">Lê Thảo Vy (đã đăng nhập)</div>',1)}
+    ${field('T2 '+dm(0),'<div class="win"><span>06:15 – 10:15</span><span class="op on">Pilates</span></div><div class="win"><span>17:00 – 21:00</span><span class="op on">Pilates</span></div><div class="add">+ thêm khung</div>',1)}
+    ${field('T3 '+dm(1),'<div class="win"><span>17:00 – 21:00</span><span class="op on">Pilates</span></div><div class="add">+ thêm khung</div>')}
+    ${field('…','<div class="faint" style="font-size:12.5px">T4 – T7 tương tự</div>')}
+    ${field('CN '+dm(6),opts(['Có dạy','Nghỉ tuần','Nghỉ phép'],1))}
+    ${field('Khoảng nghỉ tối thiểu giữa 2 khung',opts(['3h','4h','6h'],1))}
+    <div class="sumr">Tổng tuần: <b>44h</b> · trần 40h <span class="chip bad">quá 4h</span></div>
+    <div class="btn">Gửi quản lý duyệt</div></div>`;
+  return `<div class="phones">${khach}${hlv}</div>`;
+}
 function sysTab(){
   const p=PTS[0],P=PTS[0],c=CL.find(x=>x.issue&&!x.pref)||CL[0],cp=CL.find(x=>x.pref)||CL[0];
   const srcChip=r=>{const[t,k]=SRC[r.src];return`<span class="chip ${k}">${t}</span>`};
@@ -1199,6 +1286,13 @@ function sysTab(){
    <div class="tw" style="margin-top:10px"><table><tr><th>Khâu</th><th>Máy hiện tại</th><th>Thực tế FFL</th><th>Trạng thái</th></tr>
    ${FIT.map(([k,m,t,st])=>`<tr><td><b>${k}</b></td><td>${m}</td><td>${t}</td><td><span class="chip ${FITC[st][1]}">${FITC[st][0]}</span></td></tr>`).join('')}</table></div></section>
 
+
+  <section><h2>Ai điền gì</h2><p class="lead">Góc nhìn của người điền: câu hỏi hiện ra thế nào, lúc nào điền, máy dùng câu trả lời để làm gì. Hạn chót và một số câu là giả định, chờ FFL chốt.</p>
+   <div class="tl">${TIMELINE.map(([t,x])=>`<div><b>${t}</b><span>${x}</span></div>`).join('')}</div>
+   <div class="sch">${WHO.map(w=>`<div><h3>${w.who} <small>${w.when}</small></h3>
+     <div class="tw"><table><tr><th>Câu hỏi / mục</th><th>Cách nhập</th><th>Bắt buộc</th><th>Máy dùng để</th></tr>${w.rows.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('')}</table></div>
+     <p class="cap">${w.note}</p></div>`).join('')}</div>
+   <h3 style="margin-top:20px">Form mẫu khách và HLV sẽ thấy</h3><p class="sub">Bản vẽ minh hoạ trên điện thoại, chưa bấm được. Ô xanh là giờ đã chọn.</p>${formMock()}</section>
   <section><h2>Schema đầu vào</h2><p class="lead">Tên trường theo bản thiết kế. Hồ sơ PT, gói tập và hồ sơ khách đổi ít; hai phiếu tuần nộp lại mỗi tuần.</p><div class="sch">
    <div><h3>Hồ sơ PT <small>studio khai, đổi khi deal đổi</small></h3>${schTable([
     ['pt_id','mã','',p.id],['ten','chuỗi','',p.name],['hop_dong','full_time · part_time · theo_ca','Theo ca chỉ dùng khi PT khác không nhận được (G6)',p.ct],
