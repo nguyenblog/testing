@@ -207,6 +207,7 @@ Test tự động: `node fit-for-life/tests/run.js` (18 kiểm tra: đọc khung
   - báo huỷ theo rule tính buổi (≥ 3h không tính, < 2h tính, 2–3h CS chọn và được ghi lại, ngoại lệ huỷ lần đầu gói mới);
   - form khách và form HLV theo mục "Ai điền gì"; tab Bộ rule, Chỉ số, Đọc thread CS, Hệ thống chạy.
   - Dữ liệu mẫu theo khuôn lịch thật của FFL (5 HLV, 21 khách, tên giả).
+- Flow chính của `xep-ca.html` (sửa 02/10): **1 Gửi form** (link khách, link HLV, ai chưa gửi, nhắc) → **2 Tổng hợp** (lưới cung – cầu, khách muốn tập, HLV trực; CS tự xếp bằng cách bấm ô giờ) → **3 Chọn rule** (hệ thống hỏi bộ rule, chọn xếp từ đầu hoặc chỉ phần còn thiếu) → **4 Lịch tuần** (lịch cả tuần theo HLV, giờ dạy từng ngày và cả tuần so với giờ trực và deal, bảng giờ dạy theo HLV, chờ chốt, chốt và gửi). Tab Lịch trực HLV, Yêu cầu khách, Chỉ số, Đọc thread CS và vai Chạy thử ẩn sau công tắc "Tab nâng cao". Mục tiêu giờ dạy tuần đang tạm tính = deal ca/tháng ÷ 4,3, chờ FFL xác nhận cách tính cam kết giờ.
 - **`xep-ca-v2.html` — bản giải thích máy cho PM**, có thêm chế độ tự nhập dữ liệu DN để shadow.
 - Lõi máy xếp dùng chung giữa hai file (đoạn "Máy xếp ca" trong `xep-ca.html` lấy từ v2, thêm lớp 1-4 và HLV nghỉ ngày). Sửa luật thì sửa ở cả hai.
 

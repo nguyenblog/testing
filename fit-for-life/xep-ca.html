@@ -409,6 +409,29 @@ ol.trc-ol li{margin:4px 0} ol.trc-ol li.lna{color:var(--faint)}
 .wrow .x{flex:none}
 .dayw .link{display:inline-block;margin-top:6px}
 .lbanner .muted{font-size:13px}
+.navsep{flex:1}
+.nav button.adv{color:var(--faint);font-size:14px}
+.stephd{flex:none;padding:10px 28px;background:var(--accent-soft);border-bottom:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+.stephd b{color:var(--accent);margin-right:8px}
+.sendg{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:6px}
+@media(max-width:900px){.sendg{grid-template-columns:1fr}}
+.scard{margin-top:12px}
+.prog{height:8px;border-radius:99px;background:var(--soft);margin-top:12px;overflow:hidden}.prog i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.progt{font-size:13px;color:var(--muted);margin-top:6px}.progt b{color:var(--ink)}
+.runbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:14px 0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}
+.runbar .sp{flex:1}
+.wk.wk9{grid-template-columns:140px repeat(7,minmax(88px,1fr)) 140px;min-width:900px}
+.wk.wk9>div{padding:8px 8px}
+.wk.wk9 .bars{gap:1px}
+.wk.wk9>div:nth-child(8n+1){border-left:1px solid var(--line)}.wk.wk9>div:nth-child(9n+1){border-left:0}
+.wk .hw{background:var(--accent-soft)}
+.wk .cell .c b{color:var(--ink)}
+table.htab{width:100%;border-collapse:collapse;font-size:13px}
+table.htab th,table.htab td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.htab th{font-size:11.5px;color:var(--muted);font-weight:600}
+table.htab .n{text-align:right;font-variant-numeric:tabular-nums}
+table.htab .w{color:var(--warn)} table.htab tr.tot td{border-bottom:0;font-weight:600}
+.dev #advBtn.on{color:var(--accent);font-weight:600}
 /* Tổng quan */
 .ovg{display:grid;grid-template-columns:56px repeat(7,minmax(92px,1fr));gap:3px;padding:10px 14px 30px;min-width:740px}
 .ovg .oh,.ovk .oh,.ovh .oh{position:sticky;top:0;z-index:3;background:var(--bg);font-size:12.5px;font-weight:600;color:var(--muted);padding:6px 4px;text-align:center}
@@ -469,6 +492,7 @@ ol.trc-ol li{margin:4px 0} ol.trc-ol li.lna{color:var(--faint)}
   <button data-act="role" data-v="pt">HLV (nộp khung trực)</button>
   <button data-act="role" data-v="kh">Khách (mở link form)</button>
   <span class="gap"></span>
+  <button data-act="adv" id="advBtn">Tab nâng cao: tắt</button>
   <button data-act="reset">Làm lại demo</button>
   <button data-act="theme" id="themeBtn">Tối</button>
   <a href="xep-ca-v2.html">Mở bản giải thích máy (v2)</a>
@@ -1590,34 +1614,57 @@ function placeOptions(c,s0,av,keepPT){
 const fillers=s=>s.cls==='1-1'||s.bk.length>=CAP[s.cls]?[]:unplaced().filter(c=>{const r=check(c,s.d,s.h,PB[s.p]);return r.ok&&r.join===s});
 
 /* ============ vẽ ============ */
-const NAV=[['plan','Xếp tuần'],['ov','Tổng quan'],['rules','Bộ rule'],['ptav','Lịch trực HLV'],['req','Yêu cầu khách'],['metrics','Chỉ số'],['thread','Đọc thread CS'],['sys','Hệ thống chạy']];
+// 4 bước chính theo thứ tự làm việc của CS; các tab còn lại chỉ hiện khi bật "Tab nâng cao".
+const NAV_MAIN=[['send','1 · Gửi form'],['ov','2 · Tổng hợp'],['rules','3 · Chọn rule'],['plan','4 · Lịch tuần']];
+const NAV_ADV=[['ptav','Lịch trực HLV'],['req','Yêu cầu khách'],['metrics','Chỉ số'],['thread','Đọc thread CS']];
 function render(){
   const sc=$('.cal')?.scrollTop||0,sl=$('.cal')?.scrollLeft||0,pl=$('.panel')?.scrollTop||0;
   document.querySelectorAll('.dev [data-act=role]').forEach(b=>b.classList.toggle('on',b.dataset.v===state.role));
+  $('.dev [data-v="lab"]').style.display=state.adv?'':'none';$('#advBtn').textContent=state.adv?'Tab nâng cao: bật':'Tab nâng cao: tắt';$('#advBtn').classList.toggle('on',state.adv);
   $('#themeBtn').textContent=document.documentElement.dataset.theme==='dark'?'Sáng':'Tối';
   const app=$('#app');
   if(state.role!=='cs'){const wy=window.scrollY;app.className='';app.style.height='auto';$('#top').style.display='none';$('#sbody').innerHTML=state.role==='kh'?viewKH():state.role==='lab'?viewLab():viewPTForm();window.scrollTo(0,wy);return}
   app.className='staff';app.style.height='';$('#top').style.display='';
   const nPT=PTS.filter(p=>!p.submitted).length,nKH=CL.filter(c=>!c.req).length;
   $('#top').innerHTML=`<div class="wm">${LOGO()}<b>FIT FOR LIFE</b><span>Xếp ca</span></div>
-   <nav class="nav">${NAV.map(([k,l])=>`<button data-act="tab" data-v="${k}" class="${state.tab===k?'on':''}">${l}${k==='ptav'&&nPT?`<small>${nPT}</small>`:''}${k==='req'&&nKH?`<small>${nKH}</small>`:''}${k==='rules'&&state.rulesDirty?'<small>•</small>':''}</button>`).join('')}</nav>
+   <nav class="nav">${NAV_MAIN.map(([k,l])=>`<button data-act="tab" data-v="${k}" class="${state.tab===k?'on':''}">${l}${k==='send'&&(nPT||nKH)?`<small>${nPT+nKH}</small>`:''}${k==='rules'&&state.rulesDirty?'<small>•</small>':''}</button>`).join('')}
+    <span class="navsep"></span>${(state.adv?NAV_ADV:[]).map(([k,l])=>`<button data-act="tab" data-v="${k}" class="adv ${state.tab===k?'on':''}">${l}</button>`).join('')}<button data-act="tab" data-v="sys" class="adv ${state.tab==='sys'?'on':''}">Hệ thống chạy</button></nav>
    <div class="auto">Dữ liệu demo</div><div class="av">TH</div>`;
-  $('#sbody').innerHTML={plan:viewPlan,ov:viewOV,rules:viewRules,ptav:viewPTAv,req:viewReq,metrics:viewMetrics,thread:()=>page(thrTab()),sys:()=>page(sysTab())}[state.tab]();
+  $('#sbody').innerHTML={send:viewSend,plan:viewPlan,ov:viewOV,rules:viewRules,ptav:viewPTAv,req:viewReq,metrics:viewMetrics,thread:()=>page(thrTab()),sys:()=>page(sysTab())}[state.tab]();
   const c=$('.cal');if(c){c.scrollTop=sc;c.scrollLeft=sl}const p=$('.panel');if(p)p.scrollTop=pl;
 }
 const page=h=>`<div class="page"><div class="pin2 xv">${h}</div></div>`;
+
+
+/* --- Bước 1: gửi form cho khách và HLV --- */
+function viewSend(){
+  const kd=reqCL().length,pd=PTS.filter(p=>p.submitted).length,nc=CL.filter(c=>!c.req),np=PTS.filter(p=>!p.submitted);
+  const prog=(a,b)=>`<div class="prog"><i style="width:${b?a/b*100:0}%"></i></div><div class="progt"><b>${a}/${b}</b> đã gửi</div>`;
+  const card=(title,sub,link,a,b,dl,miss,role,who)=>`<section class="lcard scard"><h2>${title}</h2><p class="sub2">${sub}</p>
+    <div class="linkbox"><code>${link}</code><button class="btn line xs" data-act="copy" data-v="${link}">Sao chép link</button><button class="btn line xs" data-act="role" data-v="${role}">Mở form như ${who}</button></div>
+    <div class="dl">Hạn: <b>${dl}</b></div>${prog(a,b)}
+    ${miss.length?`<div class="sblk"><h3>Chưa gửi <span class="chip w">${miss.length}</span>${miss.length>1?`<button class="btn line xs" data-act="nudge" data-v="${miss.length} ${who}">Nhắc tất cả</button>`:''}</h3>${miss.map(x=>`<div class="item"><div class="a"><div><b>${esc(x.name)}</b><div class="r">${x.r}</div></div><button class="btn line xs" data-act="nudge" data-v="${esc(x.name)}">Nhắc</button></div></div>`).join('')}</div>`:'<div class="item" style="margin-top:14px"><b>Đã gửi đủ.</b></div>'}</section>`;
+  return `<div class="page"><div class="pin2 fade" style="max-width:1120px">
+   <h2>Bước 1 · Gửi form ${WEEK().toLowerCase()}</h2>
+   <p class="lead">Gửi 2 link: khách chọn giờ muốn tập, HLV nộp khung trực. Đủ người (hoặc tới hạn) thì bấm "Tổng hợp". Ai gửi trễ vẫn xếp bổ sung được sau.</p>
+   <div class="sendg">
+    ${card('Form cho khách','Khách đang có gói chọn số buổi, giờ có thể bắt đầu và HLV muốn. Môn, loại lớp lấy từ gói.','fitforlife.vn/lich-tap/tuan-41',kd,CL.length,DL_KH,nc.map(c=>({name:c.name,r:`${c.kind} ${c.cls} · tuần trước tập ${c.last?avHuman(toAv(c.last)):'—'}`})),'kh','khách')}
+    ${card('Form cho HLV','HLV nộp khung trực từng ngày kèm môn, ngày nghỉ, khoảng nghỉ tối thiểu. Quản lý duyệt.','fitforlife.vn/khung-truc/tuan-41',pd,PTS.length,DL_PT,np.map(p=>({name:'HLV '+p.name,r:`Tuần trước: ${esc(p.prev||'—')}`})),'pt','HLV')}
+   </div>
+   <div class="acts" style="margin-top:22px"><button class="btn pri" data-act="tab" data-v="ov">Tổng hợp →</button><span class="muted" style="font-size:13.5px">${kd} khách, ${reqCL().reduce((a,c)=>a+c.n,0)} buổi cần xếp · ${pd} HLV đã nộp khung trực</span></div>
+  </div></div>`;
+}
 
 /* --- Xếp tuần --- */
 function viewPlan(){
   const tot=reqCL().reduce((a,c)=>a+c.n,0),done=allBk().length,tmp=allBk().filter(x=>isTmp(x.b)).length,oc=SESS.filter(s=>PB[s.p].ct==='oc').length;
   const st={empty:['Chưa xếp',''],draft:['Bản nháp','w'],published:[`Đã chốt · bản v${WK.ver||1}`,'o']}[state.status];
   const newReq=state.status!=='empty'&&unplaced().length>0;
-  return `${labBanner()}<div class="tb"><div class="dt">${WEEK()}<span class="chip ${st[1]}">${st[0]}</span></div>
+  return `${labBanner()}<div class="stephd"><b>Bước 4 · Lịch tuần</b> Lịch đã xếp theo từng HLV và giờ dạy tương ứng. Bấm một lớp để xem vì sao máy chọn, chốt các ca gán tạm, rồi chốt và gửi.</div><div class="tb"><div class="dt">${WEEK()}<span class="chip ${st[1]}">${st[0]}</span></div>
     <div class="seg"><button data-act="view" data-v="day" class="${state.view==='day'?'on':''}">Theo ngày</button><button data-act="view" data-v="week" class="${state.view==='week'?'on':''}">Cả tuần</button></div>
     <span class="sp"></span>
-    ${state.status==='draft'?`<button class="btn ghost sm" data-act="restart">Xếp lại từ đầu</button>`:''}
-    ${state.status==='empty'?`<button class="btn pri" data-act="auto">Xếp tự động</button>`:
-      `<button class="btn line sm" data-act="auto" ${newReq?'':'disabled'} title="Chỉ xếp các buổi còn thiếu, không đụng ca đã xếp">Xếp phần còn thiếu</button>`}
+    ${state.status==='empty'?`<button class="btn pri" data-act="go-rules" data-v="fresh">Xếp ca tự động</button>`:
+      `${state.status==='draft'?`<button class="btn ghost sm" data-act="go-rules" data-v="fresh">Xếp lại từ đầu</button>`:''}<button class="btn line sm" data-act="go-rules" data-v="fill" ${newReq?'':'disabled'} title="Chỉ xếp các buổi còn thiếu, không đụng ca đã xếp">Xếp phần còn thiếu</button>`}
     ${state.status==='draft'?`<button class="btn pri" data-act="publish">Chốt và gửi lịch</button>`:''}
   </div>
   ${state.rulesDirty&&state.status!=='empty'?`<div class="lbanner"><b>Bộ rule đã đổi</b><span class="muted">Lịch hiện tại vẫn xếp theo bộ rule cũ. ${state.status==='draft'?'Bấm "Xếp lại từ đầu" để áp dụng.':'Bộ rule mới chỉ áp dụng cho các buổi xếp thêm.'}</span></div>`:''}
@@ -1645,9 +1692,22 @@ function blk(s){
   const names=s.bk.map(b=>CB[b.c]).map(c=>`${c.mine?'<span class="star">★</span>':''}${esc(c.short)}`).join(' + ');
   const free=CAP[s.cls]-s.bk.length,rule=tmp?'Gán tạm':LABEL[s.bk[0].rule]||'';
   return `<button class="blk kd ${s.kind} ${tmp||cf?'cf':''} ${on?'on':''}" style="top:${ypx(s.h)+2}px;height:${DUR/60*HPX-4}px" data-act="sel-s" data-id="${s.id}">${fresh?'<i class="nw" title="Thêm sau khi chốt"></i>':''}<b>${names}${s.cls!=='1-1'&&free>0?` <span class="seat">+${free} ghế</span>`:''}</b><span>${hm(s.h)} · ${s.kind} ${s.cls} · ${cf?'chờ khách xác nhận':esc(rule)}</span></button>`}
+
+// Giờ dạy của HLV (mỗi lớp 60 phút = 1 giờ, lớp nhóm tính 1 lần) so với giờ trực và deal tháng
+function hlvHours(p){const ss=SESS.filter(s=>s.p===p.id),day=DAYS.map((x,d)=>ss.filter(s=>s.d===d).length*DUR/60),wk=day.reduce((a,b)=>a+b,0),duty=dutyMin(p.win).reduce((a,b)=>a+b,0)/60;
+  return{day,wk,duty,use:duty?Math.round(wk/duty*100):0,pace:Math.round(p.deal/4.3),month:p.done+ss.length}}
+const nf=x=>String(Math.round(x*10)/10).replace('.',',');
+function hoursTable(){
+  return `<table class="htab"><tr><th>HLV</th><th class="n">Dạy tuần này</th><th class="n">Trực</th><th class="n">Tháng / deal</th></tr>
+   ${PTS.map(p=>{const H=hlvHours(p),low=H.wk<H.pace;return `<tr><td><button class="link" style="color:var(--ink);font-weight:600" data-act="sel-p" data-id="${p.id}">${p.short}</button><div class="faint" style="font-size:11.5px">${CT[p.ct]}</div></td>
+     <td class="n"><b>${nf(H.wk)}h</b><div class="${low?'w':'faint'}" style="font-size:11.5px">mục tiêu ≈ ${H.pace}h</div></td><td class="n">${p.submitted?nf(H.duty)+'h':'—'}<div class="faint" style="font-size:11.5px">${p.submitted?`dùng ${H.use}%`:'chưa nộp'}</div></td>
+     <td class="n">${H.month}/${p.deal}<div class="faint" style="font-size:11.5px">${Math.round(H.month/p.deal*100)}%</div></td></tr>`}).join('')}
+   <tr class="tot"><td>Tổng</td><td class="n"><b>${nf(PTS.reduce((a,p)=>a+hlvHours(p).wk,0))}h</b></td><td class="n">${nf(PTS.reduce((a,p)=>a+hlvHours(p).duty,0))}h</td><td></td></tr></table>
+   <p class="note">Mỗi lớp tính 1 giờ dạy, lớp nhóm cũng tính 1 lần. Mục tiêu tuần ≈ deal ca/tháng ÷ 4,3 (giả định, chờ FFL xác nhận cách tính cam kết giờ).</p>`;
+}
 function gridWeek(){
   const hrs=[];for(let t=OPEN;t<LAST+DUR;t+=60)hrs.push(t);
-  return `<div class="wk"><div class="hd">HLV</div>${DAYS.map((x,i)=>`<div class="hd">${DOWF[i]}<small>${dm(i)} · ${SESS.filter(s=>s.d===i).length} lớp</small></div>`).join('')}
+  return `<div class="wk wk9"><div class="hd">HLV</div>${DAYS.map((x,i)=>`<div class="hd">${DOWF[i]}<small>${dm(i)} · ${SESS.filter(s=>s.d===i).length} lớp</small></div>`).join('')}<div class="hd hw">Giờ dạy tuần<small>so với giờ trực</small></div>
   ${PTS.map(p=>`<div><button class="rn" data-act="sel-p" data-id="${p.id}"><b>HLV ${p.short}</b><span class="chip ${p.ct==='ft'?'g':''}">${CT[p.ct]}</span> <span class="faint" style="font-size:12px">${p.kinds.join(' · ')}</span></button></div>`+
     DAYS.map((x,d)=>{
       if(!p.submitted)return `<div><button class="cell off" data-act="goday" data-v="${d}">Chưa nộp</button></div>`;
@@ -1655,7 +1715,8 @@ function gridWeek(){
       const ws=p.win.filter(w=>w.d===d);if(!ws.length)return `<div><button class="cell off" data-act="goday" data-v="${d}">Không trực</button></div>`;
       const ss=SESS.filter(s=>s.p===p.id&&s.d===d);
       return `<div><button class="cell" data-act="goday" data-v="${d}" title="Mở ngày ${dm(d)}"><div class="bars" style="grid-template-columns:repeat(${hrs.length},1fr)">${hrs.map(t=>{const s=ss.find(x=>x.h>=t&&x.h<t+60);
-        return s?`<i class="s kd ${s.kind}"></i>`:ws.some(w=>w.a<t+60&&w.b>t)?'<i class="fr"></i>':'<i></i>'}).join('')}</div><div class="c">${ss.length} lớp · ${ss.reduce((a,s)=>a+s.bk.length,0)} khách</div></button></div>`}).join('')).join('')}</div>`;
+        return s?`<i class="s kd ${s.kind}"></i>`:ws.some(w=>w.a<t+60&&w.b>t)?'<i class="fr"></i>':'<i></i>'}).join('')}</div><div class="c"><b>${nf(ss.length*DUR/60)}h</b> · ${ss.length} lớp · ${ss.reduce((a,s)=>a+s.bk.length,0)} khách</div></button></div>`}).join('')+(()=>{const H=hlvHours(p);return `<div class="hw"><button class="cell" data-act="sel-p" data-id="${p.id}"><b style="font-size:16px">${nf(H.wk)}h</b> <span class="faint">/ ${p.submitted?nf(H.duty)+'h trực':'chưa nộp'}</span><div class="c">tháng ${H.month}/${p.deal} ca · mục tiêu ≈ ${H.pace}h/tuần</div></button></div>`})()).join('')}
+  <div class="hd" style="position:static">Tổng</div>${DAYS.map((x,d)=>`<div class="hd" style="position:static">${nf(SESS.filter(s=>s.d===d).length*DUR/60)}h dạy<small>${SESS.filter(s=>s.d===d).reduce((a,s)=>a+s.bk.length,0)} khách</small></div>`).join('')}<div class="hd hw" style="position:static">${nf(SESS.length*DUR/60)}h<small>${allBk().length} buổi khách</small></div></div>`;
 }
 
 /* --- panel --- */
@@ -1686,12 +1747,13 @@ function panelHome(){
       <li><b>Giới hạn</b> (bật/tắt ở tab Bộ rule): giờ dạy/ngày, buổi liền, ca gãy, khách 1 buổi/ngày, HLV theo ca để sau cùng.</li>
       <li><b>Ưu tiên</b>: ${esc(ruleOrderText())}. Rule trên hoà mới xét rule dưới; ca nào cũng ghi rule đã quyết định.</li>
       <li><b>Thiếu rule</b>: máy vẫn xếp phương án tốt nhất nhưng đánh dấu gán tạm để cậu chốt.</li></ol></div>
-    <div class="acts"><button class="btn pri" data-act="auto">Xếp tự động</button></div></div>`;
+    <div class="acts"><button class="btn pri" data-act="go-rules" data-v="fresh">Xếp ca tự động</button><button class="btn line" data-act="tab" data-v="ov">Tự xếp ở Tổng hợp</button></div></div>`;
   }
   const tot=reqCL().reduce((a,c)=>a+c.n,0),bks=allBk(),tmp=bks.filter(x=>isTmp(x.b)),up=unplaced();
   return `<div class="pin fade"><h2>${state.status==='published'?'Lịch tuần đã gửi':'Bản nháp đã xếp'}</h2>
    <p class="meta">${state.status==='published'?'Thay đổi từ giờ được ghi lại kèm danh sách người cần báo, và tính vào cột "Thực tế" ở tab Chỉ số.':'Chốt các ca gán tạm, bấm vào ca bất kỳ để xem máy đã xét thế nào, rồi chốt và gửi.'}</p>
    <div class="nums"><div><b>${bks.length}/${tot}</b><span>buổi đã xếp</span></div><div><b>${tmp.length}</b><span>buổi gán tạm</span></div><div><b>${bks.length?Math.round(tmp.length/bks.length*100):0}%</b><span>tỉ lệ gán tạm</span></div></div>
+   <div class="sblk"><h3>Giờ dạy theo HLV</h3>${hoursTable()}</div>
    ${tmp.length?`<div class="sblk"><h3>Chờ cậu chốt <span class="chip w">${tmp.length}</span></h3>${tmp.map(({s,b})=>{const c=CB[b.c],f=b.flags.find(f=>f.code[0]==='T'||f.down);
      return `<div class="item warn"><div class="a"><div><button class="link" style="color:var(--ink);font-size:14px;font-weight:600" data-act="sel-s" data-id="${s.id}">${esc(c.name)}</button> <span class="chip">${f.code==='HD'?'Bị dời':f.code}</span><div class="r">${slotS(s.d,s.h)} · HLV ${PB[s.p].short} · ${esc(f.text)}</div>${f.hint?`<div class="r" style="color:var(--ink)">${esc(f.hint)}</div>`:''}</div></div></div>`}).join('')}
      <p class="note">Mỗi mã là một chỗ máy chưa có rule. Mã nào lặp lại nhiều tuần là tín hiệu FFL nên chốt thành rule (xem tab Hệ thống chạy).</p></div>`:''}
@@ -1779,10 +1841,11 @@ function viewOV(){
     <div class="seg">${modes.map(([k,l])=>`<button data-act="ov-mode" data-v="${k}" class="${O.mode===k?'on':''}">${l}</button>`).join('')}</div>
     <div class="seg">${[['all','Tất cả'],['Gym','Gym'],['Pilates','Pilates']].map(([k,l])=>`<button data-act="ov-kind" data-v="${k}" class="${O.kind===k?'on':''}">${l}</button>`).join('')}</div>
     ${O.mode!=='hlv'?`<button class="btn ${O.need?'pri':'line'} sm" data-act="ov-need">${O.need?'✓ ':''}Chỉ khách còn thiếu buổi</button>`:''}
-    <span class="sp"></span>${state.status==='empty'?'<span class="muted" style="font-size:13px">Chưa xếp. Bấm một ô giờ để xếp tay, hoặc sang "Xếp tuần" để máy xếp.</span>':`<button class="btn line sm" data-act="auto" ${unplaced().length?'':'disabled'}>Máy xếp phần còn thiếu</button>`}</div>`;
+    <span class="sp"></span>${!SESS.length?`<span class="muted" style="font-size:13px">Bấm một ô giờ để tự xếp, hoặc</span><button class="btn pri" data-act="go-rules" data-v="fresh">Xếp ca tự động →</button>`
+      :`<button class="btn line sm" data-act="go-rules" data-v="fill" ${unplaced().length?'':'disabled'}>Xếp tự động phần còn thiếu →</button><button class="btn pri sm" data-act="tab" data-v="plan">Xem lịch tuần →</button>`}</div>`;
   const body=O.mode==='kh'?ovKH():O.mode==='hlv'?ovHLV():ovCC();
   const legend=O.mode==='cc'?`<div class="strip"><span>Số trên: khách muốn bắt đầu giờ này${O.need?' (còn thiếu buổi)':''}</span><span>Số dưới: HLV đang trống</span><span>Màu đậm: nhiều khách muốn</span><span>Viền: đã có lớp</span><span class="lgd">Bấm một ô để xếp tay</span></div>`:'';
-  return `${tb}${legend}<div class="cbody"><div class="cal">${body}</div><aside class="panel ${state.sel?'has':'nosel'}">${state.sel?panel():ovHome()}</aside></div>`;
+  return `<div class="stephd"><b>Bước 2 · Tổng hợp</b> Khung trực HLV và giờ khách muốn tập trên cùng một lưới. Tự xếp bằng cách bấm ô giờ, hoặc để máy xếp.</div>${tb}${legend}<div class="cbody"><div class="cal">${body}</div><aside class="panel ${state.sel?'has':'nosel'}">${state.sel?panel():ovHome()}</aside></div>`;
 }
 function ovHome(){
   const tot=reqCL().reduce((a,c)=>a+c.n,0),up=unplaced();
@@ -1842,14 +1905,18 @@ function panelSlot(sl){
 /* --- Bộ rule --- */
 function viewRules(){
   const grp=g=>RULES.filter(r=>r.g===g);
-  return page(`<h2>Bộ rule ${WEEK().toLowerCase()}</h2>
-   <p class="lead">Bật, tắt hoặc đổi thứ tự rồi xếp. Máy lưu bộ rule này kèm lịch, để mở lại tuần cũ vẫn biết tuần đó xếp theo rule nào. Nhãn bên phải cho biết rule do ai nói.</p>
+  const hasS=SESS.length>0,pub=state.status==='published',mode=pub?'fill':(state.runMode||(hasS?'fill':'fresh')),manual=allBk().filter(x=>x.b.rule==='CS').length;
+  const runBar=`<div class="runbar">${hasS&&!pub?`<div class="seg"><button data-act="run-mode" data-v="fill" class="${mode==='fill'?'on':''}">Chỉ xếp phần còn thiếu</button><button data-act="run-mode" data-v="fresh" class="${mode==='fresh'?'on':''}">Xếp lại từ đầu</button></div>`:''}
+    <span class="muted" style="font-size:13.5px">${mode==='fresh'?(hasS?`Xoá ${allBk().length} buổi đang có${manual?` (gồm ${manual} buổi CS xếp tay)`:''} rồi xếp lại toàn bộ.`:`Xếp ${reqCL().reduce((a,c)=>a+c.n,0)} buổi cho ${reqCL().length} khách.`):`Giữ ${allBk().length} buổi đang có, xếp ${unplaced().reduce((a,c)=>a+need(c),0)} buổi còn thiếu.`}</span>
+    <span class="sp"></span><button class="btn pri" data-act="run-rules">Xếp theo bộ rule này →</button></div>`;
+  return page(`<h2>Bước 3 · Dùng bộ rule nào cho lần xếp này?</h2>
+   <p class="lead">Bật, tắt hoặc đổi thứ tự rồi bấm xếp. Máy lưu bộ rule này kèm lịch, để mở lại tuần cũ vẫn biết tuần đó xếp theo rule nào. Nhãn bên phải cho biết rule do ai nói.</p>${runBar}
    <div class="rg"><div class="hd">Rule nền <small>luôn bật, tắt thì lịch vô nghĩa</small></div>${grp('N').map(rrow).join('')}</div>
    <div class="rg"><div class="hd">Rule giới hạn <small>ô nào phạm thì bỏ · tham số riêng từng HLV</small></div>${grp('G').map(rrow).join('')}</div>
    <div class="rg"><div class="hd">Rule ưu tiên <small>xét từ trên xuống, rule trên hoà mới xét rule dưới · thứ tự PM chốt tạm 02/10, FFL chưa duyệt</small></div>${UORD.map((id,i)=>rrow(RB[id],i)).join('')}</div>
    ${on('U5')?'':'<div class="note w">Đang tắt "Tỉ lệ ca". Tắt nhiều tuần thì số ca cả tháng sẽ lệch deal với HLV.</div>'}
    <div class="note">Rule "Ca gãy" chỉ được kiểm sau khi xếp xong cả tuần, vì khoảng trống giữa hai buổi có thể được lấp bằng buổi xếp sau.</div>
-   <div class="acts"><button class="b" data-reset>Về bộ rule mặc định</button>${state.status==='draft'?'<button class="b pri" data-act="restart">Xếp lại với bộ rule này</button>':''}</div>`);
+   <div class="acts"><button class="b" data-reset>Về bộ rule mặc định</button></div>${runBar}`);
 }
 
 /* --- Lịch trực HLV --- */
@@ -2159,11 +2226,23 @@ function labBanner(){
    <span style="flex:1"></span><button class="btn line xs" data-act="role" data-v="lab">Sửa đầu vào</button><button class="btn pri xs" data-act="lab-go">Xếp lại với đầu vào này</button></div>`;
 }
 
+// Máy xếp các buổi còn thiếu, giữ nguyên lớp đang có (kể cả lớp CS xếp tay)
+function fillMissing(){
+  const before=bkeys(snap()),pub=state.status==='published',n=autoPlace();
+  const added=allBk().filter(({s,b})=>!before.has([b.c,s.d,s.h,s.p].join('|')));
+  if(added.length&&pub)WK.ver++;
+  if(!WK.may)WK.may=snap();
+  added.forEach(({s,b})=>WK.log.push({ver:pub?WK.ver:null,phase:pub?'tuan':'chot',type:'them',c:b.c,from:null,to:{d:s.d,h:s.h,p:s.p},reason:'Máy xếp phần còn thiếu',deltas:{}}));
+  if(pub&&n)CHANGES.push({text:`Xếp thêm ${n} buổi cho khách gửi trễ hoặc HLV nộp trễ.`,at:nowAt(),notify:[...new Set(added.map(x=>CB[x.b.c].name))]});
+  if(state.status==='empty')state.status='draft';
+  toast(n?`Đã xếp thêm ${n} buổi, các lớp đã có giữ nguyên.`:'Không xếp thêm được buổi nào.');
+  return n;
+}
 /* ============ khởi tạo + sự kiện ============ */
 function boot(){
   CUR={kind:'mau',pts:DEF_PTS,cls:DEF_CL,hand:null,week:'2026-10-05',minHLV:2};setWeek(CUR.week);
   seed();resetWeek();CHANGES=[];
-  state={role:'cs',tab:'plan',view:'day',day:0,sel:null,status:'empty',modal:null,ptMe:'bao',khMe:'k19',form:null,ptForm:null,lab:state?.lab||null,labRun:false,
+  state={role:'cs',tab:'send',view:'week',adv:state?.adv||false,runMode:null,day:0,sel:null,status:'empty',modal:null,ptMe:'bao',khMe:'k19',form:null,ptForm:null,lab:state?.lab||null,labRun:false,
     rulesDirty:false,met:null,ov:{mode:'cc',kind:'all',need:true},thr:{text:loadThr(),rule:{noCharge:3,charge:2}},thrTsv:''};
 }
 document.addEventListener('click',e=>{
@@ -2205,16 +2284,16 @@ document.addEventListener('click',e=>{
       if(pub)CHANGES.push({text:`Xếp thêm ${c.name}: ${slotS(sl.d,sl.h)}, HLV ${p.short}${ov?` (bỏ qua ${RB[r.no].name})`:''}.`,at:nowAt(),notify:[c.name,'HLV '+p.short]});
       state.sel={...sl,cid:null};toast(`Đã xếp ${c.name} với HLV ${p.short} lúc ${slotS(sl.d,sl.h)}.`);break}
     case 'close':state.sel=null;break;
-    case 'auto':{if(state.status==='empty'){const n=startRun();const up=unplaced().reduce((x,c)=>x+need(c),0),tmp=allBk().filter(x=>isTmp(x.b)).length;
-        toast(`Đã xếp ${n} buổi${tmp?`, ${tmp} buổi gán tạm chờ cậu chốt`:''}${up?`, còn ${up} buổi chưa xếp được`:''}.`)}
-      else{const before=bkeys(snap()),pub=state.status==='published',n=autoPlace();
-        const added=allBk().filter(({s,b})=>!before.has([b.c,s.d,s.h,s.p].join('|')));
-        if(added.length&&pub)WK.ver++;
-        if(!WK.may)WK.may=snap();
-        added.forEach(({s,b})=>WK.log.push({ver:pub?WK.ver:null,phase:pub?'tuan':'chot',type:'them',c:b.c,from:null,to:{d:s.d,h:s.h,p:s.p},reason:'Máy xếp phần còn thiếu',deltas:{}}));
-        if(state.status==='published'&&n)CHANGES.push({text:`Xếp thêm ${n} buổi cho khách gửi trễ hoặc HLV nộp trễ.`,at:nowAt(),notify:[...new Set(allBk().filter(x=>x.b.fresh&&!x.b.told).map(x=>CB[x.b.c].name))]});
-        toast(n?`Đã xếp thêm ${n} buổi, các lớp đã có giữ nguyên.`:'Không xếp thêm được buổi nào.')}break}
+    case 'auto':{if(state.status==='empty'){const n=startRun();toast(`Đã xếp ${n} buổi.`)}else fillMissing();break}
     case 'restart':openModal({type:'restart'});return;
+    case 'go-rules':state.runMode=state.status==='published'?'fill':v;state.tab='rules';state.sel=null;break;
+    case 'run-mode':state.runMode=v;break;
+    case 'run-rules':{const pub=state.status==='published',mode=pub?'fill':(state.runMode||(SESS.length?'fill':'fresh'));
+      if(mode==='fresh'||!SESS.length){const n=startRun(),up=unplaced().reduce((x,c)=>x+need(c),0),tmp=allBk().filter(x=>isTmp(x.b)).length;
+        toast(`Đã xếp ${n} buổi${tmp?`, ${tmp} buổi gán tạm chờ cậu chốt`:''}${up?`, còn ${up} buổi chưa xếp được`:''}.`)}
+      else fillMissing();
+      Object.assign(state,{tab:'plan',view:'week',sel:null,runMode:null});break}
+    case 'adv':state.adv=!state.adv;if(!state.adv&&[...NAV_ADV.map(x=>x[0])].includes(state.tab))state.tab='plan';if(!state.adv&&state.role==='lab')state.role='cs';break;
     case 'publish':openModal({type:'publish'});return;
     case 'okbk':{const s=SESS.find(x=>x.id===+id),b=s.bk.find(x=>x.c===v);b.ok=true;toast('Đã chốt phương án máy cho buổi này.');break}
     case 'fill':{const s=SESS.find(x=>x.id===+id),c=CB[v];change({type:'them',c:c.id,from:null,to:{d:s.d,h:s.h,p:s.p},reason:'CS lấp ghế trống'},()=>book(c,{d:s.d,h:s.h,p:PB[s.p],join:s},{rule:'CS',ok:true,cs:{reason:'CS lấp ghế trống',phase:state.status==='published'?'tuan':'chot'},fresh:state.status==='published'}));
@@ -2225,7 +2304,7 @@ document.addEventListener('click',e=>{
     case 'kchange':openModal({type:'kchange',sid:+id,cid:v,mode:'cancel',when:'far',chg:null,first:false,pick:0});return;
     case 'ptoff':openModal({type:'ptoff',pid:id,d:null});return;
     case 'nudge':toast(`Đã nhắc ${v} qua Zalo (demo, chưa gửi thật).`);return;
-    case 'copy':navigator.clipboard?.writeText('https://fitforlife.vn/lich-tap/tuan-41').catch(()=>{});toast('Đã sao chép link form.');return;
+    case 'copy':navigator.clipboard?.writeText('https://'+(v||'fitforlife.vn/lich-tap/tuan-41')).catch(()=>{});toast('Đã sao chép link form.');return;
     case 'told':CHANGES[+v].told=true;break;
     // modal
     case 'close-m':closeModal();return;
@@ -2243,7 +2322,7 @@ document.addEventListener('click',e=>{
     case 'f-cell':case 'f-day':case 'f-hr':case 'f-band':gridAct(state.form.av,a.slice(2),v);break;
     case 'kh-send':{const f=state.form,c=CB[f.cid];f.note=$('#f_note').value.trim();const av=f.keep==='keep'&&c.last?toAv(c.last):new Set(f.av);
       Object.assign(c,{n:f.n,av,pref:f.pref||null,note:f.note,req:true,viaForm:true,at:'Vừa gửi'});f.sent=true;
-      toast('Đã gửi. Bên CS thấy yêu cầu mới ở tab "Yêu cầu khách"; bấm "Xếp phần còn thiếu" để xếp.');break}
+      toast('Đã gửi. Bên CS thấy ở bước 1 (Gửi form) và lưới Tổng hợp; xếp bổ sung ở bước 2 hoặc 3.');break}
     case 'kh-edit':state.form.sent=false;break;
     // HLV
     case 'pd-st':{const x=state.ptForm.days[+t.dataset.i];x.st=v;if(v==='on'&&!x.win.length)x.win.push({a:1020,b:1260,kind:null});break}
