@@ -20,11 +20,29 @@ const ok = (name, cond, extra = '') => { cond ? pass++ : fail++; console.log(`${
     ok(`${step}: không phạm bất biến (${r.n} buổi)`, !r.bad.length, r.bad.join(', ')); return r };
   const click = async sel => pg.click(sel);
 
-  await click('.tb [data-act="auto"]'); const r0 = await inv('Xếp tự động');
+  // Tổng quan: CS xếp tay trước khi máy chạy
+  await click('[data-act="tab"][data-v="ov"]');
+  ok('Tổng quan có lưới cung – cầu 7 ngày × 29 mốc', (await pg.$$('.oc')).length === 7 * 29);
+  await click('.oc[data-d="1"][data-h="1020"]'); await click('.panel [data-act="slot-c"]'); await click('.panel [data-act="man"]:not([data-v])');
+  ok('Xếp tay từ ô giờ tạo buổi do CS xếp', await pg.evaluate(() => allBk().length === 1 && allBk()[0].b.rule === 'CS' && state.status === 'draft'));
+  await inv('Xếp tay');
+  for (const m of ['kh', 'hlv', 'cc']) await click(`[data-act="ov-mode"][data-v="${m}"]`);
+  await click('[data-act="tab"][data-v="plan"]');
+  await click('.tb [data-act="auto"]'); const r0 = await inv('Máy xếp phần còn thiếu sau khi CS xếp tay');
+  ok('Buổi CS xếp tay được giữ nguyên', await pg.evaluate(() => allBk().some(x => x.b.rule === 'CS' && x.s.d === 1 && x.s.h === 1020)));
+  // Vẫn xếp khi bị rule giới hạn chặn: Dung đã có buổi T2, xếp thêm T2 8h bị chặn bởi "Khách 1 buổi/ngày"
+  await click('[data-act="tab"][data-v="ov"]'); await click('[data-act="ov-need"]');
+  const dHas = await pg.evaluate(() => sessOf(CB.k15).map(s => s.d + '|' + s.h));
+  const slot = dHas.includes('0|420') ? '480' : '420';
+  await click(`.oc[data-d="0"][data-h="${slot}"]`); await click('.panel [data-act="slot-c"][data-id="k15"]');
+  const ovBtn = await pg.$('.panel [data-act="man"][data-v="ovr"]');
+  ok('Có nút "Vẫn xếp" khi bị rule giới hạn chặn', !!ovBtn);
+  if (ovBtn) { await ovBtn.click(); ok('Buổi "Vẫn xếp" ghi rule đã bỏ qua', await pg.evaluate(() => allBk().some(x => x.b.override === 'G1'))) }
+  await click('[data-act="tab"][data-v="plan"]');
   ok('Xếp được ít nhất 30 buổi từ dữ liệu mẫu', r0.n >= 30, r0.n);
+  ok('Bản máy xếp được lưu làm mốc so chỉ số (kể cả khi CS xếp tay trước)', await pg.evaluate(() => !!WK.may));
   ok('Có lớp 1-4 ghép nhiều khách', await pg.evaluate(() => SESS.some(s => s.cls === '1-4' && s.bk.length >= 2)));
   ok('Có buổi gán tạm chờ CS chốt', await pg.evaluate(() => allBk().some(x => isTmp(x.b))));
-  ok('Bản máy xếp được lưu để so chỉ số', await pg.evaluate(() => !!WK.may));
   await click('.blk'); await click('[data-act="move"]'); await click('[data-act="m-go"]'); await inv('Đổi chỗ trong bản nháp');
   await click('[data-act="publish"]'); await click('[data-act="m-go"]');
   ok('Chốt lịch: bản v1, khoá hoán đổi', await pg.evaluate(() => state.status === 'published' && WK.ver === 1 && NOSWAP));
