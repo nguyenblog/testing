@@ -410,6 +410,12 @@ ol.trc-ol li{margin:4px 0} ol.trc-ol li.lna{color:var(--faint)}
 .dayw .link{display:inline-block;margin-top:6px}
 .lbanner .muted{font-size:13px}
 .navsep{flex:1}
+.secj{border-top:6px solid var(--soft);padding:16px 0 8px;min-width:900px}
+.secj>h3{font-size:16px;font-weight:600;padding:0 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.secj>.note{padding:0 14px;margin:4px 0 8px}
+.okb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.okb.bad{border-left-color:var(--warn);background:color-mix(in srgb,var(--warn) 16%,var(--bg))}
+.jmp{font-size:12.5px;color:var(--muted)} .jmp .link{font-size:12.5px}
 .nav button.adv{color:var(--faint);font-size:14px}
 .stephd{flex:none;padding:10px 28px;background:var(--accent-soft);border-bottom:1px solid var(--line);font-size:13.5px;color:var(--muted)}
 .stephd b{color:var(--accent);margin-right:8px}
@@ -566,7 +572,7 @@ const DEF_PTS=[
    av:'T2-T7 7-11 Pilates',at:'T5 1/10 · 11:30'},
 ];
 // Khách: gói (môn, loại lớp, số buổi còn), số buổi tuần này, giờ rảnh ("7,8h30" giờ cụ thể; "7-9" khoảng), HLV muốn, vấn đề (từ hồ sơ),
-// lịch sử tháng trước [tới, đã đặt, huỷ sát giờ], last: giờ tập tuần trước (dùng cho "Giữ lịch như tuần trước"). av trống = chưa điền form.
+// lịch sử tháng trước [tới, đã đặt, huỷ sát giờ], last: giờ tập tuần trước (hiện ở bước 1 để CS nhắc khách). av trống = chưa điền form.
 const DEF_CL=[
   {id:'k1',name:'Lê Minh Quân',kind:'Gym',cls:'1-1',left:9,n:3,av:'T2,T4,T6 17,18,19',pref:'quang',issue:null,hist:[12,12,0]},
   {id:'k2',name:'Phạm Thu Hằng',kind:'Gym',cls:'1-2',left:6,n:2,av:'T3,T5 18,19',pref:null,issue:null,hist:[7,8,1]},
@@ -1273,7 +1279,6 @@ const WHO=[
     ['Số điện thoại hoặc mã khách','tự điền nếu mở từ link riêng','Có','Nhận ra khách, lấy gói và hồ sơ'],
     ['Gói tập dùng tuần này','chọn trong các gói đang còn buổi (hiện số buổi còn)','Có','Môn (N1), loại lớp (U3)'],
     ['Tuần này muốn tập mấy buổi?','chọn 1 … số buổi còn lại','Có','Số buổi cần xếp'],
-    ['Giữ lịch như tuần trước?','Giữ nguyên / Đổi một số buổi','Có','Lịch cố định (chờ FFL xác nhận cách làm)'],
     ['Giờ có thể tập','bấm chọn ô trên lưới T2–CN, mỗi ô 30 phút; nên chọn nhiều hơn số buổi','Có','Giờ rảnh (N2)'],
     ['Muốn tập với HLV nào?','chọn trong HLV dạy môn đó, hoặc "Ai cũng được"','Không','HLV khách chọn (U1)'],
     ['Ghi chú cho CS','chữ tự do','Không','CS đọc; máy không dùng'],
@@ -1671,8 +1676,9 @@ function viewPlan(){
   ${state.view==='day'?`<div class="days">${DAYS.map((x,i)=>`<button data-act="day" data-v="${i}" class="${state.day===i?'on':''}">${DOWS[i]} ${dm(i)}<small>${SESS.filter(s=>s.d===i).length} lớp</small></button>`).join('')}</div>`:''}
   <div class="strip"><span>Cần xếp <b>${tot}</b> buổi</span><span>Đã xếp <b>${done}</b></span>
     <span class="${tot-done?'w':''}">Chưa xếp <b>${Math.max(0,tot-done)}</b></span><span class="${tmp?'w':''}">Gán tạm <b>${tmp}</b></span><span>Lớp dùng HLV theo ca <b>${oc}</b></span>
+    ${state.view==='week'?`<span class="jmp">Xem nhanh: <button class="link" data-act="jump" data-v="sec-hlv">Lịch HLV</button> · <button class="link" data-act="jump" data-v="sec-kh">Lịch khách</button> · <button class="link" data-act="jump" data-v="sec-truc">Ca trực gốc</button></span>`:''}
     <span class="lgd"><span><i style="background:var(--accent)"></i>Gym</span><span><i style="background:var(--alt)"></i>Pilates</span><span><i style="background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--warn) 30%,var(--bg)) 0 3px,transparent 3px 6px)"></i>Gán tạm</span><span><i style="background:repeating-linear-gradient(135deg,var(--line) 0 3px,transparent 3px 6px)"></i>Ngoài khung trực</span></span></div>
-  <div class="cbody"><div class="cal">${state.view==='day'?gridDay():gridWeek()}</div>
+  <div class="cbody"><div class="cal">${state.view==='day'?gridDay():gridWeek()+compareSecs()}</div>
   <aside class="panel ${state.sel?'has':'nosel'}">${panel()}</aside></div>`;
 }
 function gridDay(){
@@ -1705,9 +1711,19 @@ function hoursTable(){
    <tr class="tot"><td>Tổng</td><td class="n"><b>${nf(PTS.reduce((a,p)=>a+hlvHours(p).wk,0))}h</b></td><td class="n">${nf(PTS.reduce((a,p)=>a+hlvHours(p).duty,0))}h</td><td></td></tr></table>
    <p class="note">Mỗi lớp tính 1 giờ dạy, lớp nhóm cũng tính 1 lần. Mục tiêu tuần ≈ deal ca/tháng ÷ 4,3 (giả định, chờ FFL xác nhận cách tính cam kết giờ).</p>`;
 }
+// Dưới lịch HLV: lịch của khách và ca trực gốc, để đối chiếu đúng/sai
+function compareSecs(){
+  const list=reqCL().slice().sort((a,b)=>need(b)-need(a)||a.kind.localeCompare(b.kind)||a.name.localeCompare(b.name,'vi'));
+  const bk=allBk(),good=bk.filter(({s,b})=>{const c=CB[b.c];return c.av.has(K(s.d,s.h))&&(!c.pref||s.p===c.pref)}).length;
+  const outDuty=SESS.filter(s=>!PB[s.p].av.has(K(s.d,s.h))).length;
+  return `<section class="secj" id="sec-kh"><h3>Lịch của khách <span class="chip ${good===bk.length?'o':'w'}">${good}/${bk.length} buổi khớp giờ và HLV khách chọn</span>${unplaced().length?` <span class="chip w">${unplaced().length} khách còn thiếu buổi</span>`:''}</h3>
+    <p class="note">Chữ thường: giờ khách chọn trong form. Ô màu: buổi đã xếp; ✓ khớp giờ khách chọn và HLV khách muốn, ⚠ lệch (rê chuột để xem lệch gì).</p>${ovKH(list)}</section>
+   <section class="secj" id="sec-truc"><h3>Ca trực gốc của HLV <span class="chip ${outDuty?'w':'o'}">${outDuty?outDuty+' lớp ngoài ca trực':'Mọi lớp nằm trong ca trực'}</span></h3>
+    <p class="note">Khung trực HLV đã nộp, theo ngày và môn. ● là giờ HLV đang có lớp; ô màu không có ● là giờ trực còn trống.</p>${ovHLV('all')}</section>`;
+}
 function gridWeek(){
   const hrs=[];for(let t=OPEN;t<LAST+DUR;t+=60)hrs.push(t);
-  return `<div class="wk wk9"><div class="hd">HLV</div>${DAYS.map((x,i)=>`<div class="hd">${DOWF[i]}<small>${dm(i)} · ${SESS.filter(s=>s.d===i).length} lớp</small></div>`).join('')}<div class="hd hw">Giờ dạy tuần<small>so với giờ trực</small></div>
+  return `<div class="wk wk9" id="sec-hlv"><div class="hd">HLV</div>${DAYS.map((x,i)=>`<div class="hd">${DOWF[i]}<small>${dm(i)} · ${SESS.filter(s=>s.d===i).length} lớp</small></div>`).join('')}<div class="hd hw">Giờ dạy tuần<small>so với giờ trực</small></div>
   ${PTS.map(p=>`<div><button class="rn" data-act="sel-p" data-id="${p.id}"><b>HLV ${p.short}</b><span class="chip ${p.ct==='ft'?'g':''}">${CT[p.ct]}</span> <span class="faint" style="font-size:12px">${p.kinds.join(' · ')}</span></button></div>`+
     DAYS.map((x,d)=>{
       if(!p.submitted)return `<div><button class="cell off" data-act="goday" data-v="${d}">Chưa nộp</button></div>`;
@@ -1860,15 +1876,15 @@ function ovCC(){
    ${START.map(t=>`<span class="ot ${t%60?'hh':''}">${hm(t)}</span>${DAYS.map((x,d)=>{const w=cnt[K(d,t)],all=wantAt(d,t,false).length,f=freeHLV(d,t).length,has=SESS.some(s=>s.d===d&&s.h===t&&ovKindOk(s.kind)),sel=state.sel?.t==='slot'&&state.sel.d===d&&state.sel.h===t;
      return `<button class="oc ${has?'has':''} ${sel?'on':''}" style="--a:${w?Math.round(12+w/mx*55):0}%" data-act="slot" data-d="${d}" data-h="${t}" title="${DOWF[d]} ${hm(t)}: ${w} khách, ${f} HLV trống">${w||all?`<b>${w}${O.need&&all>w?`<i>/${all}</i>`:''}</b>`:'<b class="z">·</b>'}<small>${f?f+' HLV':'—'}</small></button>`}).join('')}`).join('')}</div>`;
 }
-function ovKH(){
-  const O=state.ov,list=reqCL().filter(c=>ovKindOk(c.kind)&&(!O.need||need(c)>0)).sort((a,b)=>need(b)-need(a)||a.kind.localeCompare(b.kind)||a.name.localeCompare(b.name,'vi'));
+function ovKH(listArg){
+  const O=state.ov,list=listArg||reqCL().filter(c=>ovKindOk(c.kind)&&(!O.need||need(c)>0)).sort((a,b)=>need(b)-need(a)||a.kind.localeCompare(b.kind)||a.name.localeCompare(b.name,'vi'));
   const dayTxt=(c,d)=>{const hs=START.filter(t=>c.av.has(K(d,t)));if(!hs.length)return'';const r=[];hs.forEach(t=>{const x=r[r.length-1];if(x&&x[1]===t-STEP)x[1]=t;else r.push([t,t])});return r.map(([a,b])=>a===b?hm(a):`${hm(a)}–${hm(b)}`).join(', ')};
   return `<div class="ovk"><span class="oh">Khách</span>${DOWS.map((x,d)=>`<span class="oh">${DOWF[d]}<small>${dm(d)}</small></span>`).join('')}
    ${list.map(c=>{const ss=sessOf(c);return `<button class="okn ${state.sel?.t==='c'&&state.sel.id===c.id?'on':''}" data-act="sel-c" data-id="${c.id}"><b>${esc(c.name)}</b><span><span class="chip ${kindClass(c.kind)}">${c.kind} ${c.cls}</span> ${need(c)?`<span class="chip w">thiếu ${need(c)}/${c.n}</span>`:`<span class="chip o">${c.n}/${c.n}</span>`}${c.pref?` · muốn ${PB[c.pref].short}`:''}</span></button>`+
-     DAYS.map((x,d)=>{const s=ss.find(q=>q.d===d),tx=dayTxt(c,d);return `<div class="okc">${s?`<button class="okb kd ${s.kind}" data-act="sel-s" data-id="${s.id}">${hm(s.h)} · ${PB[s.p].short}</button>`:''}${tx?`<span class="${s?'faint':''}">${tx}</span>`:''}</div>`}).join('')}).join('')||'<div class="muted" style="padding:20px">Không có khách nào khớp bộ lọc.</div>'}</div>`;
+     DAYS.map((x,d)=>{const sd=ss.filter(q=>q.d===d),tx=dayTxt(c,d);return `<div class="okc">${sd.map(s=>{const inReq=c.av.has(K(s.d,s.h)),okP=!c.pref||s.p===c.pref,good=inReq&&okP;return `<button class="okb kd ${s.kind} ${good?'':'bad'}" data-act="sel-s" data-id="${s.id}" title="${good?'Khớp giờ khách chọn'+(c.pref?' và HLV khách muốn':''):(!inReq?'Ngoài giờ khách chọn':'')+(!okP?(inReq?'':' · ')+'Khác HLV khách muốn':'')}">${hm(s.h)} · ${PB[s.p].short} ${good?'✓':'⚠'}</button>`}).join('')}${tx?`<span class="${sd.length?'faint':''}">${tx}</span>`:''}</div>`}).join('')}).join('')||'<div class="muted" style="padding:20px">Không có khách nào khớp bộ lọc.</div>'}</div>`;
 }
-function ovHLV(){
-  const ks=state.ov.kind==='all'?['Gym','Pilates']:[state.ov.kind],cols=DAYS.flatMap((x,d)=>ks.map(k=>({d,k})));
+function ovHLV(kindArg){
+  const kk=kindArg||state.ov.kind,ks=kk==='all'?['Gym','Pilates']:[kk],cols=DAYS.flatMap((x,d)=>ks.map(k=>({d,k})));
   return `<div class="ovh" style="--c:${cols.length}"><span class="oh"></span>${cols.map(({d,k},i)=>`<span class="oh ${i%ks.length===0?'dl':''}">${ks.length>1?`${DOWS[d]} ${dm(d)}<small class="${kindClass(k)}">${k}</small>`:`${DOWF[d]}<small>${dm(d)}</small>`}</span>`).join('')}
    ${START.map(t=>`<span class="ot ${t%60?'hh':''}">${hm(t)}</span>${cols.map(({d,k},i)=>{const on=PTS.filter(p=>dutyAt(p,d,t,k));const sel=state.sel?.t==='slot'&&state.sel.d===d&&state.sel.h===t;
      return `<button class="ohc ${i%ks.length===0?'dl':''} ${on.length?'kd '+k:''} ${sel?'on':''}" data-act="slot" data-d="${d}" data-h="${t}">${on.map(p=>{const b=busyAt(p,d,t);return `<span class="${b?'bz':''}" title="${b?'Đang có lớp '+b.kind+' '+b.cls:'Trống'}">${p.short}${b?'●':''}</span>`}).join('')}</button>`}).join('')}`).join('')}</div>
@@ -2095,8 +2111,8 @@ const daysOf=av=>new Set([...av].map(k=>k.split('|')[0])).size;
 function viewKH(){
   const pend=CL.filter(c=>!c.req||c.viaForm);const c=CB[state.khMe]||pend[0];
   if(!c)return `<div class="phwrap"><div class="phsel">Không còn khách nào chưa điền form. Muốn tự điền như khách, dùng "Chạy thử (PM)".</div></div>`;
-  if(!state.form||state.form.cid!==c.id)state.form={cid:c.id,n:Math.min(c.n,c.left||c.n),keep:c.last?'keep':'change',av:new Set(c.av),pref:c.pref||'',note:c.note||'',sent:c.viaForm};
-  const f=state.form,lastAv=c.last?toAv(c.last):new Set(),cur=f.keep==='keep'?lastAv:f.av,days=daysOf(cur),G=state.minDays!==false;
+  if(!state.form||state.form.cid!==c.id)state.form={cid:c.id,n:Math.min(c.n,c.left||c.n),av:new Set(c.av),pref:c.pref||'',note:c.note||'',sent:c.viaForm};
+  const f=state.form,cur=f.av,days=daysOf(cur);
   const sel=`<div class="phsel">Đang xem như <select data-act="khme">${pend.map(x=>`<option value="${x.id}" ${x.id===c.id?'selected':''}>${esc(x.name)}${x.viaForm?' (đã gửi)':''}</option>`).join('')}</select> <span>(khách chưa điền form)</span></div>`;
   if(f.sent)return `<div class="phwrap">${sel}<div class="phone fade"><div class="done"><div class="ok">✓</div><h2>Đã gửi phiếu tập</h2><p>Studio sẽ xếp lớp và nhắn lịch chính thức cho ${esc(c.short)} trước tối Chủ nhật.</p>
     <div class="sum"><div class="kv"><span>Gói</span><span>${c.kind} ${c.cls}</span></div><div class="kv"><span>Số buổi</span><span>${f.n} buổi tuần này</span></div><div class="kv"><span>Giờ có thể tập</span><span>${esc(avHuman(c.av))}</span></div><div class="kv"><span>HLV muốn</span><span>${f.pref?'HLV '+PB[f.pref].short:'Ai cũng được'}</span></div></div>
@@ -2108,9 +2124,8 @@ function viewKH(){
     <div class="fq"><span class="lb">Số điện thoại</span><div class="inp ro">${esc(c.phone)}</div></div>
     <div class="fq"><span class="lb">Gói tập</span><div class="inp ro">${c.kind} ${c.cls} · còn ${c.left} buổi</div><div class="hint">Môn và loại lớp lấy theo gói. Muốn đổi gói, nhắn CS.</div></div>
     <div class="fq"><span class="lb">Tuần này muốn tập mấy buổi?</span><div class="opts">${[...Array(maxN)].map((_,i)=>i+1).map(n=>`<button data-act="f-n" data-v="${n}" class="${f.n===n?'on':''}">${n} buổi</button>`).join('')}</div></div>
-    ${c.last?`<div class="fq"><span class="lb">Giữ lịch như tuần trước?</span><div class="opts"><button data-act="f-keep" data-v="keep" class="${f.keep==='keep'?'on':''}">Giữ nguyên</button><button data-act="f-keep" data-v="change" class="${f.keep==='change'?'on':''}">Đổi một số buổi</button></div><div class="hint">Tuần trước: ${esc(avHuman(lastAv))}</div></div>`:''}
-    ${f.keep==='keep'&&c.last?'':`<div class="fq"><span class="lb">Chạm vào các giờ bạn có thể bắt đầu buổi tập</span>${pgGrid(f.av,'f')}
-     <div class="hint ${f.av.size&&days<f.n?'w':''}">${!f.av.size?'Mỗi ô là giờ bắt đầu một buổi 60 phút. Chọn nhiều hơn số buổi để dễ xếp đúng HLV bạn muốn.':days<f.n?`Bạn mới chọn ${days} ngày. Mỗi ngày tập tối đa 1 buổi, nên cần chọn ít nhất ${f.n} ngày.`:`Đã chọn ${f.av.size} giờ trong ${days} ngày.`}</div></div>`}
+    <div class="fq"><span class="lb">Chạm vào các giờ bạn có thể bắt đầu buổi tập</span>${pgGrid(f.av,'f')}
+     <div class="hint ${f.av.size&&days<f.n?'w':''}">${!f.av.size?'Mỗi ô là giờ bắt đầu một buổi 60 phút. Chọn nhiều hơn số buổi để dễ xếp đúng HLV bạn muốn.':days<f.n?`Bạn mới chọn ${days} ngày. Mỗi ngày tập tối đa 1 buổi, nên cần chọn ít nhất ${f.n} ngày.`:`Đã chọn ${f.av.size} giờ trong ${days} ngày.`}</div></div>
     <div class="fq"><label for="f_pref">Muốn tập với HLV nào? (không bắt buộc)</label><select id="f_pref" data-act="f-pref"><option value="">Ai cũng được</option>${pts.map(p=>`<option value="${p.id}" ${f.pref===p.id?'selected':''}>HLV ${p.short}</option>`).join('')}</select>
      <div class="hint">Studio cố xếp đúng HLV bạn chọn; nếu HLV kín lịch thì CS sẽ nhắn hỏi trước khi đổi.</div></div>
     <div class="fq"><label for="f_note">Ghi chú cho CS (không bắt buộc)</label><textarea id="f_note" placeholder="Ví dụ: T4 có thể đến trễ 15 phút">${esc(f.note)}</textarea></div>
@@ -2293,6 +2308,7 @@ document.addEventListener('click',e=>{
         toast(`Đã xếp ${n} buổi${tmp?`, ${tmp} buổi gán tạm chờ cậu chốt`:''}${up?`, còn ${up} buổi chưa xếp được`:''}.`)}
       else fillMissing();
       Object.assign(state,{tab:'plan',view:'week',sel:null,runMode:null});break}
+    case 'jump':document.getElementById(v)?.scrollIntoView({block:'start',behavior:'smooth'});return;
     case 'adv':state.adv=!state.adv;if(!state.adv&&[...NAV_ADV.map(x=>x[0])].includes(state.tab))state.tab='plan';if(!state.adv&&state.role==='lab')state.role='cs';break;
     case 'publish':openModal({type:'publish'});return;
     case 'okbk':{const s=SESS.find(x=>x.id===+id),b=s.bk.find(x=>x.c===v);b.ok=true;toast('Đã chốt phương án máy cho buổi này.');break}
@@ -2318,9 +2334,8 @@ document.addEventListener('click',e=>{
     case 'm-apick':m.aff[+t.dataset.i].pick=+v;planOff(m);drawModal();return;
     // form khách
     case 'f-n':state.form.n=+v;break;
-    case 'f-keep':state.form.keep=v;break;
     case 'f-cell':case 'f-day':case 'f-hr':case 'f-band':gridAct(state.form.av,a.slice(2),v);break;
-    case 'kh-send':{const f=state.form,c=CB[f.cid];f.note=$('#f_note').value.trim();const av=f.keep==='keep'&&c.last?toAv(c.last):new Set(f.av);
+    case 'kh-send':{const f=state.form,c=CB[f.cid];f.note=$('#f_note').value.trim();const av=new Set(f.av);
       Object.assign(c,{n:f.n,av,pref:f.pref||null,note:f.note,req:true,viaForm:true,at:'Vừa gửi'});f.sent=true;
       toast('Đã gửi. Bên CS thấy ở bước 1 (Gửi form) và lưới Tổng hợp; xếp bổ sung ở bước 2 hoặc 3.');break}
     case 'kh-edit':state.form.sent=false;break;

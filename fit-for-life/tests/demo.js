@@ -35,6 +35,8 @@ const ok = (name, cond, extra = '') => { cond ? pass++ : fail++; console.log(`${
   ok('Xếp xong mở luôn bước 4 lịch cả tuần', await pg.evaluate(() => state.tab === 'plan' && state.view === 'week'));
   ok('Lịch tuần có cột giờ dạy theo HLV', (await pg.$$('.wk9 .hw')).length >= 6);
   ok('Panel có bảng giờ dạy theo HLV', !!(await pg.$('.panel table.htab')));
+  ok('Dưới lịch HLV có lịch của khách và ca trực gốc', !!(await pg.$('#sec-kh .ovk')) && !!(await pg.$('#sec-truc .ovh')));
+  ok('Mọi lớp nằm trong ca trực gốc', (await pg.$eval('#sec-truc h3', e => e.innerText)).includes('Mọi lớp nằm trong ca trực'));
   ok('Buổi CS xếp tay được giữ nguyên', await pg.evaluate(() => allBk().some(x => x.b.rule === 'CS' && x.s.d === 1 && x.s.h === 1020)));
   // Vẫn xếp khi bị rule giới hạn chặn: Dung đã có buổi T2, xếp thêm T2 8h bị chặn bởi "Khách 1 buổi/ngày"
   await click('[data-act="tab"][data-v="ov"]'); await click('[data-act="ov-need"]');
@@ -63,7 +65,7 @@ const ok = (name, cond, extra = '') => { cond ? pass++ : fail++; console.log(`${
   await click('#advBtn');
   for (const t of ['rules', 'ptav', 'req', 'metrics', 'thread', 'sys']) await click(`[data-act="tab"][data-v="${t}"]`);
   await click('[data-act="tab"][data-v="metrics"]'); ok('Tab Chỉ số có bảng so 3 bản', !!(await pg.$('table.mt')));
-  await click('.dev [data-v="kh"]'); await click('[data-act="f-keep"][data-v="change"]'); await click('[data-act="f-band"][data-v="2"]'); await click('[data-act="kh-send"]');
+  await click('.dev [data-v="kh"]'); await click('[data-act="f-band"][data-v="2"]'); await click('[data-act="kh-send"]');
   await click('.dev [data-v="pt"]'); await click('[data-act="pt-prev"]'); await click('[data-act="pt-send"]');
   await click('.dev [data-v="cs"]'); await click('[data-act="tab"][data-v="plan"]'); await click('.tb [data-act="go-rules"][data-v="fill"]'); await click('[data-act="run-rules"]'); await inv('Xếp phần còn thiếu sau khi khách và HLV nộp');
   ok('HLV nộp trễ đã có khung trực', await pg.evaluate(() => PB.bao.submitted && PB.bao.av.size > 0));
