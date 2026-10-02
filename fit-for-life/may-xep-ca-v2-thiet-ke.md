@@ -184,6 +184,20 @@ So 3 bản: **Máy xếp**, **CS chốt** (đầu tuần), **Thực tế** (sau 
 - Bấm vào một tiêu chí sẽ ra các thay đổi đã làm lệch nó, kèm lý do.
 - Bảng "lệch theo lý do" gom theo tuần là dữ liệu cho bảng "rule đang thiếu".
 
+## Lưới thời gian và giới hạn HLV (sửa 02/10 theo lịch thật)
+
+- **Thời gian tính bằng phút.** Buổi dài 60 phút, bắt đầu mỗi 30 phút từ 6:00 đến 20:00 (29 mốc/ngày). Hằng số `DUR`, `STEP`, `OPEN`, `LAST` trong code.
+- **Khung trực HLV** nhập tới phút và có thể ghi môn: `T2-T6 6:15-10:15 Gym; T7 8-12`. Buổi phải nằm gọn trong một khung, đúng môn của khung (N3). Khung không ghi môn thì dạy được mọi môn của HLV.
+- **Giờ rảnh khách** viết khoảng (`T2 7-9` = bắt đầu 7:00, 7:30, 8:00) hoặc giờ cụ thể (`T2,T4 7,8h30`).
+- **Không chồng giờ (N4):** HLV và khách không có hai buổi chồng nhau. Lớp 1-2 chỉ ghép khi cùng giờ bắt đầu.
+- **G2** đổi thành trần **giờ dạy**/ngày (1 buổi = 1 giờ).
+- **G4 buổi liền:** buổi sau bắt đầu đúng lúc buổi trước kết thúc mới tính là liền. Sau khi chạm trần phải nghỉ ít nhất `nghi_sau_chuoi` × 1 tiếng.
+- **G5 ca gãy:** khoảng trống giữa 2 buổi tính bằng phút; trên 2 tiếng mà dưới `ca_gay_min` thì phạm.
+- **Kiểm lịch trực** (chỉ cảnh báo, không chặn xếp): giờ trực/ngày và giờ/tuần của từng HLV so với `gio_truc_ngay_max` (mặc định 10) và `gio_truc_tuan_max` (mặc định 48); số HLV có mặt mỗi ngày so với mức tối thiểu (mặc định 2). Các khung chồng nhau được gộp trước khi cộng giờ.
+- Bảng nhập PT có thêm cột *Max giờ trực/ngày*, *Max giờ trực/tuần*, đổi *Giờ rảnh* thành *Khung trực*. Có dòng tiêu đề thì thứ tự cột tuỳ ý (tên cũ vẫn nhận).
+
+Test tự động: `node fit-for-life/tests/run.js` (18 kiểm tra: đọc khung giờ, chồng giờ, môn theo khung, buổi liền, nghỉ sau chuỗi, ca gãy, giờ trực, số HLV có mặt, kịch bản mẫu, đọc thread).
+
 ## Rủi ro kỹ thuật
 
 - **Bật/tắt rule tự do sinh ra nhiều tổ hợp.** Cần test từng rule riêng và vài tổ hợp hay dùng. Tắt U5 vài tuần thì tỉ lệ ca cả tháng sẽ lệch, máy phải cảnh báo điều này khi tắt.

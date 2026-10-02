@@ -200,6 +200,8 @@ th.hd,td.hd{border-left:2px solid var(--line)}
 .br span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .br i{display:block;height:10px;border-radius:3px;background:var(--accent);width:var(--w);min-width:2px}
 .br b{text-align:right;font-variant-numeric:tabular-nums}
+table.ros td.over{color:var(--bad);font-weight:600;background:var(--bad-soft)}
+.mg i{height:4px}.mg .h{height:4px}
 .theme{position:fixed;bottom:12px;right:12px;font-size:12px;border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;padding:5px 12px;cursor:pointer;z-index:6}
 .theme:hover{color:var(--ink)}
 </style>
@@ -222,11 +224,15 @@ function setWeek(mon){const t=new Date(mon+'T00:00:00Z');DAYS=[...Array(7)].map(
 setWeek('2026-10-05');
 const weekLabel=()=>`${dm(0)} – ${dm(6)}/${DAYS[6].slice(0,4)}`;
 const DOWS=['T2','T3','T4','T5','T6','T7','CN'];
-const HOURS=[6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+// Thời gian tính bằng phút từ 0h. Buổi dài DUR phút, bắt đầu mỗi STEP phút từ 6:00 đến 20:00.
+const DUR=60,STEP=30,OPEN=360,LAST=1200;
+const START=[];for(let t=OPEN;t<=LAST;t+=STEP)START.push(t);
+const hm=t=>`${Math.floor(t/60)}h${t%60?String(t%60).padStart(2,'0'):''}`;
+const hmc=t=>t%60?`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`:String(t/60);
 const dm=i=>{const[,m,d]=DAYS[i].split('-').map(Number);return d+'/'+m};
 const K=(d,h)=>d+'|'+h;
-const slotT=(d,h)=>`${DOWS[d]} ${dm(d)} · ${h}h–${h+1}h`;
-const slotS=(d,h)=>`${DOWS[d]} ${h}h`;
+const slotT=(d,h)=>`${DOWS[d]} ${dm(d)} · ${hm(h)}–${hm(h+DUR)}`;
+const slotS=(d,h)=>`${DOWS[d]} ${hm(h)}`;
 const CT={ft:'Full-time',pt:'Part-time',oc:'Theo ca'};
 function parseAv(spec){const s=new Set();if(!spec)return s;spec.split(';').forEach(seg=>{const[ds,hs]=seg.split(':');const[a,b]=hs.split('-').map(Number);ds.split(',').map(Number).forEach(d=>{for(let h=a;h<=(isNaN(b)?a:b);h++)s.add(K(d,h))})});return s}
 
@@ -234,13 +240,13 @@ function parseAv(spec){const s=new Set();if(!spec)return s;spec.split(';').forEa
 const RULES=[
   {id:'N1',g:'N',name:'Đúng môn',full:'PT dạy đúng môn của gói tập',src:'ffl',ref:'FFL 3.1 mục 1'},
   {id:'N2',g:'N',name:'Khách rảnh',full:'Chỉ xếp vào ô khách khai rảnh',src:'base',ref:''},
-  {id:'N3',g:'N',name:'PT rảnh',full:'Chỉ xếp vào ô PT khai rảnh',src:'base',ref:''},
-  {id:'N4',g:'N',name:'Ca còn chỗ',full:'Lớp 1-1: PT phải trống. Lớp 1-2: PT trống, hoặc đang có lớp 1-2 còn 1 chỗ',src:'pm',ref:'Lớp ghép'},
+  {id:'N3',g:'N',name:'Trong khung trực',full:'Buổi nằm gọn trong một khung trực của HLV, đúng môn của khung đó',src:'base',ref:''},
+  {id:'N4',g:'N',name:'Không chồng giờ',full:'HLV và khách không có buổi khác chồng giờ. Lớp 1-2 được ghép khi cùng giờ bắt đầu và còn chỗ',src:'pm',ref:'Lớp ghép'},
   {id:'G1',g:'G',name:'Khách 1 buổi/ngày',full:'Mỗi khách tối đa 1 buổi trong 1 ngày',src:'ai',ref:'Lấy từ bản demo cũ'},
-  {id:'G2',g:'G',name:'Trần ca mỗi ngày',full:'PT không dạy quá số ca/ngày của mình',src:'ffl',ref:'FFL 3.2 mục 5'},
+  {id:'G2',g:'G',name:'Trần giờ dạy mỗi ngày',full:'HLV không dạy quá số giờ/ngày của mình (1 buổi = 1 giờ)',src:'ffl',ref:'FFL 3.2 mục 5'},
   {id:'G3',g:'G',name:'Trần ca mỗi tháng',full:'PT không vượt số ca tối đa trong tháng',src:'ffl',ref:'FFL 3.2 mục 4'},
-  {id:'G4',g:'G',name:'Ca liên tục',full:'PT dạy liền tối đa số ca của mình, sau đó nghỉ',src:'ffl',ref:'FFL 3.2 mục 6. Số ca nghỉ là máy đề xuất'},
-  {id:'G5',g:'G',name:'Ca gãy',full:'Khoảng trống trong ngày: tối đa 2 ca, hoặc đủ dài để PT về nghỉ',src:'ffl',ref:'FFL 3.2 mục 7. Ngưỡng 2 ca là máy đề xuất'},
+  {id:'G4',g:'G',name:'Ca liên tục',full:'HLV dạy liền tối đa số buổi của mình (buổi sau bắt đầu đúng lúc buổi trước kết thúc), sau đó nghỉ ít nhất 1 tiếng',src:'ffl',ref:'FFL 3.2 mục 6. Số ca nghỉ là máy đề xuất'},
+  {id:'G5',g:'G',name:'Ca gãy',full:'Khoảng trống giữa 2 buổi trong ngày: tối đa 2 tiếng, hoặc đủ dài để HLV về nghỉ',src:'ffl',ref:'FFL 3.2 mục 7. Ngưỡng 2 tiếng là máy đề xuất'},
   {id:'G6',g:'G',name:'PT theo ca để sau cùng',full:'Chỉ dùng PT theo ca khi PT khác không nhận được',src:'pm',ref:'Chốt 25/09'},
   {id:'U1',g:'U',name:'PT khách chọn',full:'Khách chọn đích danh PT nào thì xếp PT đó. PT bận thì thử hoán đổi',src:'ffl',ref:'FFL 3.1 mục 2 và 4'},
   {id:'U3',g:'U',name:'Loại lớp',full:'PT hợp dạy loại lớp của gói (1-1 hoặc 1-2)',src:'ffl',ref:'FFL 3.2 mục 3'},
@@ -257,26 +263,29 @@ const on=id=>CFG[id].on;
 
 // done: số ca đã xếp trong tháng 10 trước tuần này
 const DEF_PTS=[
-  {id:'vy',  name:'Lê Thảo Vy',        ct:'ft',kinds:['Pilates'],      spec:['Cột sống'],fit:['1-1'],deal:80,done:6,monthMax:null,dayMax:6,runMax:3,rest:1,gapMin:4,av:'0,1,2,3,4:6-9;0,1,2,3,4:17-20'},
-  {id:'linh',name:'Nguyễn Khánh Linh', ct:'pt',kinds:['Pilates'],      spec:['Sau sinh'],fit:['1-2'],deal:50,done:5,monthMax:60,  dayMax:4,runMax:3,rest:1,gapMin:3,av:'0,2,4:6-9;1,3:17-20;5:8-11'},
-  {id:'khoa',name:'Bùi Anh Khoa',      ct:'pt',kinds:['Pilates','Gym'],spec:[],          fit:['1-2'],deal:50,done:2,monthMax:55,  dayMax:4,runMax:3,rest:1,gapMin:3,av:'0,2:6-9;1,3:17-20;5:8-11'},
+// av: khung trực "ngày giờ-giờ [môn]"; khung không ghi môn thì dạy được mọi môn của HLV.
+// dutyDayMax / dutyWeekMax: trần giờ trực (để kiểm lịch trực, không chặn xếp buổi)
+  {id:'vy',  name:'Lê Thảo Vy',        ct:'ft',kinds:['Pilates'],      spec:['Cột sống'],fit:['1-1'],deal:80,done:6,monthMax:null,dayMax:6,runMax:3,rest:1,gapMin:4,dutyDayMax:10,dutyWeekMax:40,av:'T2-T6 6-10; T2-T6 17-21; T7 8-12'},
+  {id:'linh',name:'Nguyễn Khánh Linh', ct:'pt',kinds:['Pilates'],      spec:['Sau sinh'],fit:['1-2'],deal:50,done:5,monthMax:60,  dayMax:4,runMax:3,rest:1,gapMin:3,dutyDayMax:10,dutyWeekMax:48,av:'T2,T4,T6 6-10; T3,T5 17-21; T7 8-12'},
+  {id:'khoa',name:'Bùi Anh Khoa',      ct:'pt',kinds:['Pilates','Gym'],spec:[],          fit:['1-2'],deal:50,done:2,monthMax:55,  dayMax:4,runMax:3,rest:1,gapMin:3,dutyDayMax:10,dutyWeekMax:48,av:'T2,T4 6:15-10:15; T3,T5 17-21; T7 8-12 Gym'},
 ];
 // [id, tên, môn, loại lớp, số buổi, giờ rảnh, PT muốn, vấn đề (từ CRM)]
 const DEF_CL=[
-  ['ha',  'Trần Thu Hà',   'Pilates','1-1',3,'0,2,4:7-8','vy',null],
-  ['lan', 'Phạm Ngọc Lan', 'Pilates','1-1',3,'1,3:18-19',null,'Cột sống'],
-  ['truc','Vũ Minh Trúc',  'Pilates','1-2',2,'0,2:8-9',null,'Sau sinh'],
-  ['nam', 'Đặng Hải Nam',  'Pilates','1-2',2,'0:8-9;2:8;4:8-9',null,'Cột sống'],
-  ['bao', 'Hoàng Quốc Bảo','Pilates','1-2',1,'3:17-18',null,null],
+// Giờ rảnh khách: "7,8h30" là giờ bắt đầu cụ thể; "7-9" là khoảng (bắt đầu 7:00, 7:30 hoặc 8:00)
+  ['ha',  'Trần Thu Hà',   'Pilates','1-1',3,'T2,T4,T6 7,8','vy',null],
+  ['lan', 'Phạm Ngọc Lan', 'Pilates','1-1',3,'T3,T5 18,19',null,'Cột sống'],
+  ['truc','Vũ Minh Trúc',  'Pilates','1-2',2,'T2,T4 8,9',null,'Sau sinh'],
+  ['nam', 'Đặng Hải Nam',  'Pilates','1-2',2,'T2 8,9; T4 8; T6 8,9',null,'Cột sống'],
+  ['bao', 'Hoàng Quốc Bảo','Pilates','1-2',1,'T5 17,18',null,null],
 ];
-const LATE_CL=['han','Lê Gia Hân','Pilates','1-1',2,'1:18;2:7','vy',null];
+const LATE_CL=['han','Lê Gia Hân','Pilates','1-1',2,'T3 18; T4 7','vy',null];
 let PTS,PB,CL,CB,SESS,SID,RUN;
-const toAv=a=>typeof a==='string'?parseAv(a):new Set(a);
+const toAv=a=>typeof a==='string'?parseWin(a).starts:new Set(a);
 const mkC=r=>({id:r[0],name:r[1],short:r[1].split(' ').slice(-1)[0],kind:r[2],cls:r[3],n:r[4],av:toAv(r[5]),pref:r[6],issue:r[7]});
 // Nguồn dữ liệu đang dùng: mẫu soạn sẵn, hoặc dữ liệu DN tự nhập (kèm lịch DN xếp tay nếu có).
-let CUR={kind:'mau',pts:DEF_PTS,cls:DEF_CL,hand:null,week:'2026-10-05'};
+let CUR={kind:'mau',pts:DEF_PTS,cls:DEF_CL,hand:null,week:'2026-10-05',minHLV:2};
 function seed(){
-  PTS=CUR.pts.map(p=>({...p,short:p.name.split(' ').slice(-1)[0],av:toAv(p.av)}));
+  PTS=CUR.pts.map(p=>{const w=parseWin(p.av,p.kinds);return{...p,short:p.name.split(' ').slice(-1)[0],avTxt:p.av,av:w.starts,avk:w.kinds,win:w.win}});
   PB=Object.fromEntries(PTS.map(p=>[p.id,p]));
   CL=CUR.cls.map(mkC);CB=Object.fromEntries(CL.map(c=>[c.id,c]));
   SESS=[];SID=1;RUN={cut:{},unp:[],gaps:[],order:[]};
@@ -285,10 +294,11 @@ const weekCount=p=>SESS.filter(s=>s.p===p.id).length;
 const ratio=p=>(p.done+weekCount(p))/p.deal;
 const placed=c=>SESS.filter(s=>s.bk.some(b=>b.c===c.id)).length;
 function runsOk(hs,p){
+  // Buổi liền nhau: buổi sau bắt đầu đúng lúc buổi trước kết thúc. Độ dài chuỗi tính bằng số buổi.
   hs=[...hs].sort((a,b)=>a-b);const runs=[];
-  hs.forEach(h=>{const r=runs[runs.length-1];if(r&&r[1]===h)r[1]=h+1;else runs.push([h,h+1])});
-  for(let i=0;i<runs.length;i++){const len=runs[i][1]-runs[i][0];if(len>p.runMax)return false;
-    if(i>0){const pl=runs[i-1][1]-runs[i-1][0];if(pl>=p.runMax&&runs[i][0]-runs[i-1][1]<p.rest)return false}}
+  hs.forEach(h=>{const r=runs[runs.length-1];if(r&&r[1]===h)r[1]=h+DUR;else runs.push([h,h+DUR])});
+  for(let i=0;i<runs.length;i++){const len=(runs[i][1]-runs[i][0])/DUR;if(len>p.runMax)return false;
+    if(i>0){const pl=(runs[i-1][1]-runs[i-1][0])/DUR;if(pl>=p.runMax&&runs[i][0]-runs[i-1][1]<p.rest*60)return false}}
   return true;
 }
 // Trả {ok,join} hoặc {no: mã rule đầu tiên chặn, blocker}
@@ -296,10 +306,13 @@ function check(c,d,h,p,o={}){
   if(!p.kinds.includes(c.kind))return{no:'N1'};
   if(!(o.av||c.av).has(K(d,h)))return{no:'N2'};
   if(!p.av.has(K(d,h)))return{no:'N3'};
-  if(SESS.some(x=>x.id!==o.ignore&&x.d===d&&x.h===h&&x.bk.some(b=>b.c===c.id)))return{no:'N4'};
+  const wk=p.avk&&p.avk.get(K(d,h));if(wk&&!wk.includes(c.kind))return{no:'N3'};
+  const lap=x=>x.id!==o.ignore&&x.d===d&&Math.abs(x.h-h)<DUR;
+  if(SESS.some(x=>lap(x)&&x.bk.some(b=>b.c===c.id)))return{no:'N4'};
   let s=SESS.find(x=>x.p===p.id&&x.d===d&&x.h===h);if(s&&s.id===o.ignore)s=null;
   let join=null;
   if(s){if(c.cls==='1-2'&&s.cls==='1-2'&&s.kind===c.kind&&s.bk.length<2)join=s;else return{no:'N4',blocker:s}}
+  if(SESS.some(x=>lap(x)&&x.p===p.id&&x.h!==h))return{no:'N4'};
   if(on('G1')&&SESS.some(x=>x.id!==o.ignore&&x.d===d&&x.bk.some(b=>b.c===c.id)))return{no:'G1'};
   if(!join){
     const hs=SESS.filter(x=>x.p===p.id&&x.d===d&&x.id!==o.ignore).map(x=>x.h);
@@ -329,7 +342,7 @@ const VAL={
   U2:c=>c.issue?x=>x.p.spec.includes(c.issue)?1:0:null,
   U4:c=>c.cls==='1-2'?x=>x.join?1:0:null,
   U5:c=>x=>-Math.round(ratio(x.p)*1000),
-  U6:c=>x=>SESS.some(s=>s.p===x.p.id&&s.d===x.d&&Math.abs(s.h-x.h)===1)?1:0,
+  U6:c=>x=>SESS.some(s=>s.p===x.p.id&&s.d===x.d&&Math.abs(s.h-x.h)===DUR)?1:0,
 };
 const BIN={U3:1,U2:1,U4:1,U6:1};
 function narrow(c,cands){
@@ -454,7 +467,7 @@ function finalize(){
   }
   if(on('G5'))for(const p of PTS)for(let d=0;d<7;d++){
     const hs=SESS.filter(s=>s.p===p.id&&s.d===d).map(s=>s.h).sort((a,b)=>a-b);
-    for(let i=1;i<hs.length;i++){const g=hs[i]-hs[i-1]-1;if(g>2&&g<p.gapMin)RUN.gaps.push({p:p.id,d,a:hs[i-1],b:hs[i],g})}
+    for(let i=1;i<hs.length;i++){const g=hs[i]-hs[i-1]-DUR;if(g>120&&g<p.gapMin*60)RUN.gaps.push({p:p.id,d,a:hs[i-1],b:hs[i],g:g/60})}
   }
 }
 function run(){
@@ -487,7 +500,7 @@ function viol(S){
     const hs=S.filter(s=>s.p===p.id&&s.d===d).map(s=>s.h).sort((a,b)=>a-b);if(!hs.length)continue;
     if(on('G2')&&hs.length>p.dayMax)n++;
     if(on('G4')&&!runsOk(hs,p))n++;
-    if(on('G5'))for(let i=1;i<hs.length;i++){const g=hs[i]-hs[i-1]-1;if(g>2&&g<p.gapMin)n++}
+    if(on('G5'))for(let i=1;i<hs.length;i++){const g=hs[i]-hs[i-1]-DUR;if(g>120&&g<p.gapMin*60)n++}
   }
   return n;
 }
@@ -680,76 +693,124 @@ function parseDays(t){
     for(let d=da;d<=db;d++)out.push(d)}
   return out;
 }
-const hr=x=>{const n=parseInt(norm(x).replace(/h$/i,''),10);if(isNaN(n))throw`giờ "${x}" không phải số`;return n};
-// "T2-T6 6-10; T7 8-12" → ca bắt đầu 6,7,8,9 các ngày T2..T6 và 8..11 ngày T7
-function parseAvHuman(t){
-  const s=new Set();t=norm(t);if(!t)throw'chưa có giờ rảnh';
+// "7", "7h", "7h30", "7:30" → phút từ 0h
+function tmin(x){const m=norm(x).toLowerCase().match(/^(\d{1,2})(?:[h:](\d{2})?)?h?$/);if(!m)throw`giờ "${x}" không hiểu (ví dụ 7, 7h30, 7:30)`;
+  const H=+m[1],M=m[2]?+m[2]:0;if(H>23||M>59)throw`giờ "${x}" không hợp lệ`;return H*60+M}
+const KINDS=['pilates','gym'];
+// Đọc khung giờ: "T2-T6 6:15-10:15 Gym; T7 8-12" (khoảng) hoặc "T2,T4 7,8h30" (giờ bắt đầu cụ thể).
+// Trả starts: các giờ bắt đầu buổi hợp lệ; kinds: môn riêng của từng giờ (nếu khung có ghi môn); win: các khung để tính giờ trực.
+function parseWin(t,ptKinds){
+  const starts=new Set(),kinds=new Map(),win=[];t=norm(t);if(!t)throw'chưa có giờ';
   for(const seg of t.split(';').map(norm).filter(Boolean)){
-    const m=seg.match(/^(\S+)\s+(\S+)$/);if(!m)throw`"${seg}" phải có dạng "T2-T6 6-10"`;
-    const days=parseDays(m[1]);const[a,b]=m[2].split('-');const h0=hr(a),h1=b!=null?hr(b):h0+1;
-    if(h0<HOURS[0]||h1>HOURS[HOURS.length-1]+1||h1<=h0)throw`giờ "${m[2]}" phải nằm trong 6–21h, giờ sau lớn hơn giờ trước`;
-    days.forEach(d=>{for(let h=h0;h<h1;h++)s.add(K(d,h))});
+    const parts=seg.split(/\s+/);if(parts.length<2)throw`"${seg}" phải có dạng "T2-T6 6-10" hoặc "T2 7,8h30"`;
+    let kind=null;if(parts.length>2&&KINDS.includes(fold(parts[parts.length-1]))){const k=parts.pop();kind=k[0].toUpperCase()+k.slice(1).toLowerCase()}
+    if(parts.length!==2)throw`"${seg}" thừa chữ; dạng đúng: "T2-T6 6-10 Gym"`;
+    if(kind&&ptKinds&&!ptKinds.includes(kind))throw`khung "${seg}" ghi môn ${kind} nhưng HLV không dạy môn này`;
+    const days=parseDays(parts[0]),tp=parts[1];
+    const add=(d,t0)=>{if(t0<OPEN||t0>LAST||(t0-OPEN)%STEP)return false;const k=K(d,t0);starts.add(k);if(kind){const ks=kinds.get(k)||[];ks.includes(kind)||ks.push(kind);kinds.set(k,ks)}return true};
+    if(tp.includes('-')){
+      const[x,y]=tp.split('-');const a=tmin(x),b=tmin(y);
+      if(b<=a)throw`"${tp}": giờ sau phải lớn hơn giờ trước`;
+      days.forEach(d=>{win.push({d,a,b,kind});for(const t0 of START)if(t0>=a&&t0+DUR<=b)add(d,t0)});
+    }else{
+      tp.split(',').map(norm).filter(Boolean).forEach(x=>{const t0=tmin(x);
+        days.forEach(d=>{win.push({d,a:t0,b:t0+DUR,kind});if(!add(d,t0))throw`giờ bắt đầu ${hm(t0)} phải từ 6h đến 20h, chẵn :00 hoặc :30`})});
+    }
   }
-  return s;
+  return{starts,kinds,win};
 }
+const parseAvHuman=t=>parseWin(t).starts;
+// Tập giờ bắt đầu → chữ gọn: các giờ cách nhau 30 phút gộp thành khoảng "7-9".
 function avHuman(av){
-  const by={};for(let d=0;d<7;d++){const hs=HOURS.filter(h=>av.has(K(d,h)));if(!hs.length)continue;
-    const runs=[];hs.forEach(h=>{const r=runs[runs.length-1];if(r&&r[1]===h)r[1]=h+1;else runs.push([h,h+1])});
-    runs.forEach(([a,b])=>{const k=a+'-'+b;(by[k]=by[k]||[]).push(d)})}
+  const by={};for(let d=0;d<7;d++){const hs=START.filter(t=>av.has(K(d,t)));if(!hs.length)continue;
+    const runs=[];hs.forEach(t=>{const r=runs[runs.length-1];if(r&&r[1]===t)r[1]=t+STEP;else runs.push([t,t+STEP])});
+    runs.forEach(([a,b])=>{const k=b-a===STEP?hmc(a):`${hmc(a)}-${hmc(b-STEP+DUR)}`;(by[k]=by[k]||[]).push(d)})}
   const dayTxt=ds=>{const r=[];ds.forEach(d=>{const x=r[r.length-1];if(x&&x[1]===d-1)x[1]=d;else r.push([d,d])});
     return r.map(([a,b])=>a===b?DOWS[a]:b===a+1?DOWS[a]+','+DOWS[b]:DOWS[a]+'-'+DOWS[b]).join(',')};
   return Object.entries(by).map(([k,ds])=>`${dayTxt(ds)} ${k}`).join('; ');
 }
+// Giờ trực theo ngày (phút), gộp các khung chồng nhau.
+function dutyMin(win){
+  const out=[0,0,0,0,0,0,0];
+  for(let d=0;d<7;d++){const w=win.filter(x=>x.d===d).sort((x,y)=>x.a-y.a);let ca=-1,cb=-1;
+    w.forEach(x=>{if(x.a>cb){if(cb>ca)out[d]+=cb-ca;ca=x.a;cb=x.b}else cb=Math.max(cb,x.b)});if(cb>ca)out[d]+=cb-ca}
+  return out;
+}
+// Kiểm lịch trực: trần giờ/ngày, giờ/tuần, số HLV có mặt mỗi ngày.
+function rosterCheck(){
+  const rows=PTS.map(p=>{const dm_=dutyMin(p.win),wk=dm_.reduce((a,b)=>a+b,0);
+    return{p,day:dm_,week:wk,overDay:dm_.map(m=>p.dutyDayMax!=null&&m>p.dutyDayMax*60),overWeek:p.dutyWeekMax!=null&&wk>p.dutyWeekMax*60}});
+  const present=[0,1,2,3,4,5,6].map(d=>rows.filter(r=>r.day[d]>0).length);
+  const min=CUR.minHLV??2,warn=[];
+  rows.forEach(r=>{r.overDay.forEach((o,d)=>o&&warn.push(`PT ${r.p.short} trực ${fh(r.day[d])} ngày ${DOWS[d]}, quá trần ${r.p.dutyDayMax}h/ngày.`));
+    if(r.overWeek)warn.push(`PT ${r.p.short} trực ${fh(r.week)}/tuần, quá trần ${r.p.dutyWeekMax}h/tuần.`)});
+  present.forEach((n,d)=>n<min&&warn.push(`${DOWS[d]} ${dm(d)}: ${n} HLV có mặt, dưới mức tối thiểu ${min}.`));
+  return{rows,present,min,warn};
+}
+const fh=m=>`${(Math.round(m/6)/10).toString().replace('.',',')}h`;
 const splitRow=l=>l.includes('\t')?l.split('\t'):l.split('|');
-function rowsOf(text,head){
-  return norm(text).split(/\r?\n/).map((l,i)=>({n:i+1,c:splitRow(l).map(norm)})).filter(r=>r.c.some(Boolean)&&!(r.n===1&&fold(r.c[0]).startsWith(head)));
+// Đọc bảng dán vào. Có dòng tiêu đề thì ghép cột theo tên (thứ tự cột tuỳ ý), không có thì theo thứ tự mẫu.
+function rowsOf(text,tpl,alias={}){
+  const L=norm(text).split(/\r?\n/).map((l,i)=>({n:i+1,c:splitRow(l).map(norm)})).filter(r=>r.c.some(Boolean));
+  if(!L.length)return[];
+  const names=tpl.map(t=>[fold(t),...(alias[t]||[]).map(fold)]);
+  const head=L[0].c.map(fold);
+  const isHead=head.some(h=>names.some(ns=>ns.includes(h)));
+  let idx=tpl.map((_,i)=>i);
+  if(isHead){idx=names.map(ns=>head.findIndex(h=>ns.includes(h)));L.shift()}
+  return L.map(r=>({n:r.n,c:idx.map(i=>i<0?'':r.c[i]??'')}));
 }
 const list=x=>norm(x).split(',').map(norm).filter(Boolean);
-const num=(x,def,name)=>{x=norm(x);if(!x)return def;const n=Number(x);if(isNaN(n)||n<0)throw`${name} "${x}" không phải số`;return n};
+const num=(x,def,name)=>{x=norm(x).replace(',','.');if(!x)return def;const n=Number(x);if(isNaN(n)||n<0)throw`${name} "${x}" không phải số`;return n};
 const CT_IN={'full-time':'ft','fulltime':'ft','ft':'ft','full time':'ft','part-time':'pt','parttime':'pt','pt':'pt','part time':'pt','theo ca':'oc','oc':'oc'};
 const TPL={
-  pt:['Tên PT','Hợp đồng','Môn dạy','Chuyên môn','Hợp lớp','Deal ca/tháng','Đã xếp trong tháng','Max ca/tháng','Max ca/ngày','Max ca liền','Ca gãy tối thiểu (giờ)','Giờ rảnh'],
+  pt:['Tên PT','Hợp đồng','Môn dạy','Chuyên môn','Hợp lớp','Deal ca/tháng','Đã xếp trong tháng','Max ca/tháng','Max giờ dạy/ngày','Max ca liền','Ca gãy tối thiểu (giờ)','Max giờ trực/ngày','Max giờ trực/tuần','Khung trực'],
   kh:['Tên khách','Môn','Loại lớp','Số buổi','Giờ rảnh','PT muốn','Vấn đề'],
   lich:['Khách','Ngày','Giờ','PT'],
 };
+const ALIAS={'Khung trực':['Giờ rảnh','Lịch trực'],'Max giờ dạy/ngày':['Max ca/ngày'],'Tên PT':['Tên','HLV','Tên HLV'],'Tên khách':['Tên','Khách'],'Giờ':['Giờ bắt đầu'],'PT':['HLV']};
 function parseInput(inp){
   const err=[],pts=[],cls=[],hand=[];
   const E=(tab,n,m)=>err.push(`${tab} dòng ${n}: ${m}`);
-  rowsOf(inp.pt,'ten').forEach(({n,c},i)=>{try{
-    const[name,ct,kinds,spec,fit,deal,done,mmax,dmax,run,gap,av]=c;
+  rowsOf(inp.pt,TPL.pt,ALIAS).forEach(({n,c},i)=>{try{
+    const[name,ct,kinds,spec,fit,deal,done,mmax,dmax,run,gap,ddmax,dwmax,av]=c;
     if(!name)throw'thiếu tên';const k=CT_IN[fold(ct)];if(!k)throw`hợp đồng "${ct}" phải là full-time, part-time hoặc theo ca`;
     const f=list(fit);if(!f.length||f.some(x=>!['1-1','1-2'].includes(x)))throw'hợp lớp phải là 1-1, 1-2 hoặc cả hai';
     const dl=num(deal,null,'deal');if(!dl)throw'deal ca/tháng phải lớn hơn 0';
-    if(!list(kinds).length)throw'thiếu môn dạy';
-    pts.push({id:'p'+(i+1),name,ct:k,kinds:list(kinds),spec:list(spec),fit:f,deal:dl,done:num(done,0,'đã xếp'),monthMax:num(mmax,null,'max ca/tháng'),
-      dayMax:num(dmax,8,'max ca/ngày'),runMax:num(run,3,'max ca liền'),rest:1,gapMin:num(gap,4,'ca gãy'),av:[...parseAvHuman(av)]});
+    const ks=list(kinds).map(x=>x[0].toUpperCase()+x.slice(1).toLowerCase());if(!ks.length)throw'thiếu môn dạy';
+    parseWin(av,ks);
+    pts.push({id:'p'+(i+1),name,ct:k,kinds:ks,spec:list(spec),fit:f,deal:dl,done:num(done,0,'đã xếp'),monthMax:num(mmax,null,'max ca/tháng'),
+      dayMax:num(dmax,8,'max giờ dạy/ngày'),runMax:num(run,3,'max ca liền'),rest:1,gapMin:num(gap,4,'ca gãy'),
+      dutyDayMax:num(ddmax,10,'max giờ trực/ngày'),dutyWeekMax:num(dwmax,48,'max giờ trực/tuần'),av:norm(av)});
   }catch(m){E('PT',n,m)}});
   const ptBy=x=>pts.find(p=>fold(p.name)===fold(x)||fold(p.name.split(' ').slice(-1)[0])===fold(x));
-  rowsOf(inp.kh,'ten').forEach(({n,c},i)=>{try{
+  rowsOf(inp.kh,TPL.kh,ALIAS).forEach(({n,c},i)=>{try{
     const[name,kind,cl,nb,av,pref,issue]=c;
     if(!name)throw'thiếu tên';if(!kind)throw'thiếu môn';if(!['1-1','1-2'].includes(cl))throw`loại lớp "${cl}" phải là 1-1 hoặc 1-2`;
     const n0=num(nb,null,'số buổi');if(!n0)throw'số buổi phải lớn hơn 0';
     let pid=null;if(norm(pref)){const p=ptBy(pref);if(!p)throw`không thấy PT "${pref}" trong bảng PT`;pid=p.id}
-    cls.push(['k'+(i+1),name,kind,cl,n0,[...parseAvHuman(av)],pid,norm(issue)||null]);
+    parseWin(av);
+    cls.push(['k'+(i+1),name,kind[0].toUpperCase()+kind.slice(1).toLowerCase(),cl,n0,norm(av),pid,norm(issue)||null]);
   }catch(m){E('Khách',n,m)}});
-  rowsOf(inp.lich,'khach').forEach(({n,c})=>{try{
+  rowsOf(inp.lich,TPL.lich,ALIAS).forEach(({n,c})=>{try{
     const[kn,dd,hh,pn]=c;const k=cls.find(x=>fold(x[1])===fold(kn)||fold(x[1].split(' ').slice(-1)[0])===fold(kn));
     if(!k)throw`không thấy khách "${kn}" trong bảng khách`;const d=DAYMAP[norm(dd).toUpperCase()];if(d==null)throw`ngày "${dd}" phải là T2…T7 hoặc CN`;
-    const h=hr(hh);if(!HOURS.includes(h))throw`giờ ${h} ngoài 6–20h`;const p=ptBy(pn);if(!p)throw`không thấy PT "${pn}" trong bảng PT`;
+    const h=tmin(hh);if(!START.includes(h))throw`giờ ${hm(h)} phải từ 6h đến 20h, chẵn :00 hoặc :30`;const p=ptBy(pn);if(!p)throw`không thấy PT "${pn}" trong bảng PT`;
     hand.push({c:k[0],d,h,p:p.id});
   }catch(m){E('Lịch DN',n,m)}});
   if(!pts.length)err.unshift('Bảng PT chưa có dòng nào.');
   if(!cls.length)err.unshift('Bảng khách chưa có dòng nào.');
   if(!/^\d{4}-\d{2}-\d{2}$/.test(inp.week||'')||new Date(inp.week+'T00:00:00Z').getUTCDay()!==1)err.unshift('Ngày bắt đầu tuần phải là một ngày thứ 2.');
-  return{err,data:{kind:'tu',pts,cls,hand:hand.length?hand:null,week:inp.week}};
+  const mh=parseInt(inp.minhlv??'2',10);
+  return{err,data:{kind:'tu',pts,cls,hand:hand.length?hand:null,week:inp.week,minHLV:isNaN(mh)?2:mh}};
 }
 // Dữ liệu mẫu đổi sang dạng bảng để người dùng thấy cách điền.
 function sampleInput(){
   const ctOut={ft:'full-time',pt:'part-time',oc:'theo ca'};
-  const pt=[TPL.pt.join('\t'),...DEF_PTS.map(p=>[p.name,ctOut[p.ct],p.kinds.join(', '),p.spec.join(', '),p.fit.join(', '),p.deal,p.done,p.monthMax??'',p.dayMax,p.runMax,p.gapMin,avHuman(parseAv(p.av))].join('\t'))].join('\n');
-  const kh=[TPL.kh.join('\t'),...DEF_CL.map(r=>[r[1],r[2],r[3],r[4],avHuman(parseAv(r[5])),r[6]?DEF_PTS.find(p=>p.id===r[6]).name:'',r[7]||''].join('\t'))].join('\n');
-  const lich=[TPL.lich.join('\t'),'Trần Thu Hà\tT2\t7\tLê Thảo Vy','Trần Thu Hà\tT4\t7\tLê Thảo Vy','Trần Thu Hà\tT6\t7\tLê Thảo Vy','Phạm Ngọc Lan\tT3\t18\tLê Thảo Vy','Phạm Ngọc Lan\tT5\t18\tLê Thảo Vy','Vũ Minh Trúc\tT2\t8\tNguyễn Khánh Linh','Đặng Hải Nam\tT2\t8\tNguyễn Khánh Linh','Vũ Minh Trúc\tT4\t8\tBùi Anh Khoa','Đặng Hải Nam\tT6\t8\tNguyễn Khánh Linh','Hoàng Quốc Bảo\tT5\t17\tBùi Anh Khoa'].join('\n');
-  return{pt,kh,lich,week:'2026-10-05'};
+  const pt=[TPL.pt.join('\t'),...DEF_PTS.map(p=>[p.name,ctOut[p.ct],p.kinds.join(', '),p.spec.join(', '),p.fit.join(', '),p.deal,p.done,p.monthMax??'',p.dayMax,p.runMax,p.gapMin,p.dutyDayMax,p.dutyWeekMax,p.av].join('\t'))].join('\n');
+  const kh=[TPL.kh.join('\t'),...DEF_CL.map(r=>[r[1],r[2],r[3],r[4],r[5],r[6]?DEF_PTS.find(p=>p.id===r[6]).name:'',r[7]||''].join('\t'))].join('\n');
+  const lich=[TPL.lich.join('\t'),'Trần Thu Hà\tT2\t7\tLê Thảo Vy','Trần Thu Hà\tT4\t7\tLê Thảo Vy','Trần Thu Hà\tT6\t7h30\tLê Thảo Vy','Phạm Ngọc Lan\tT3\t18\tLê Thảo Vy','Phạm Ngọc Lan\tT5\t18\tLê Thảo Vy','Vũ Minh Trúc\tT2\t8\tNguyễn Khánh Linh','Đặng Hải Nam\tT2\t8\tNguyễn Khánh Linh','Vũ Minh Trúc\tT4\t8\tBùi Anh Khoa','Đặng Hải Nam\tT6\t8\tNguyễn Khánh Linh','Hoàng Quốc Bảo\tT5\t17\tBùi Anh Khoa'].join('\n');
+  return{pt,kh,lich,week:'2026-10-05',minhlv:'2'};
 }
 const LS='xepca.v2.input';
 function loadInput(){try{const v=JSON.parse(localStorage.getItem(LS)||'null');if(v&&typeof v.pt==='string')return v}catch(e){}return sampleInput()}
@@ -769,18 +830,21 @@ function doRun(){
   state.prev=prev;state.ran=true;state.dirty=false;state.sel=null;state.hi=null;
   resetWeek();state.mv=null;state.met=null;
 }
-function mg(av,sess){
+// Lưới nhỏ theo nửa giờ, 6:00–21:00. on(d,t): nửa giờ bắt đầu lúc t có được dùng không.
+function mg(on){
   let h='<div class="mg"><span></span>'+DOWS.map(d=>`<span class="d">${d}</span>`).join('');
-  for(const hr of HOURS){h+=`<span class="h">${hr%3===0?hr+'h':''}</span>`;
-    for(let d=0;d<7;d++)h+=`<i class="${sess&&sess.has(K(d,hr))?'s':av.has(K(d,hr))?'on':''}"></i>`}
+  for(let t=OPEN;t<LAST+DUR;t+=STEP){h+=`<span class="h">${t%180===0?t/60+'h':''}</span>`;
+    for(let d=0;d<7;d++)h+=`<i class="${on(d,t)?'on':''}"></i>`}
   return h+'</div>';
 }
+const onStarts=av=>(d,t)=>[...Array(DUR/STEP).keys()].some(i=>av.has(K(d,t-i*STEP)));
+const onWin=win=>(d,t)=>win.some(w=>w.d===d&&w.a<t+STEP&&w.b>t);
 function cCard(c){
   return `<div class="card"><div class="nm">${esc(c.name)}${c.late?' <span class="chip w">Gửi trễ</span>':''}</div>
   <div class="chips"><span class="chip">${c.kind}</span><span class="chip">Lớp ${c.cls}</span><span class="chip">${c.n} buổi</span></div>
   <div class="kv"><span>PT muốn</span><span>${c.pref?'<b>PT '+PB[c.pref].short+'</b>':'Không chọn'}</span>
   <span>Vấn đề</span><span>${c.issue?'<b>'+c.issue+'</b>':'Không có'}</span></div>
-  ${mg(c.av)}<div class="cap">Rảnh ${c.av.size} ô giờ</div></div>`;
+  ${mg(onStarts(c.av))}<div class="cap">${c.av.size} giờ bắt đầu được · ${esc(avHuman(c.av))}</div></div>`;
 }
 function pCard(p){
   return `<div class="card"><div class="nm">PT ${esc(p.name)}</div>
@@ -788,8 +852,8 @@ function pCard(p){
   <div class="kv"><span>Chuyên môn</span><span>${p.spec.length?'<b>'+p.spec.join(', ')+'</b>':'Chưa khai'}</span>
   <span>Hợp lớp</span><span><b>${p.fit.join(', ')}</b></span>
   <span>Deal</span><span>${p.deal} ca/tháng, đã xếp ${p.done}</span>
-  <span>Giới hạn</span><span>${p.dayMax} ca/ngày · ${p.runMax} ca liền · ca gãy từ ${p.gapMin}h</span></div>
-  ${mg(p.av)}<div class="cap">Rảnh ${p.av.size} ô giờ</div></div>`;
+  <span>Giới hạn</span><span>dạy ${p.dayMax}h/ngày · ${p.runMax} buổi liền · ca gãy từ ${p.gapMin}h · trực ${p.dutyDayMax??'—'}h/ngày, ${p.dutyWeekMax??'—'}h/tuần</span></div>
+  ${mg(onWin(p.win))}<div class="cap">Trực ${fh(dutyMin(p.win).reduce((a,b)=>a+b,0))}/tuần · ${esc(p.avTxt)}</div></div>`;
 }
 function inPanel(){
   const m=state.inMode,I=state.inp;
@@ -799,14 +863,24 @@ function inPanel(){
   const ta=(id,key,lab,hint)=>`<div class="ta"><div class="tah"><label for="${id}"><b>${lab}</b></label><button class="b sm" data-tpl="${key}">Chép dòng tiêu đề</button></div>
     <textarea id="${id}" data-in="${key}" spellcheck="false" rows="7">${esc(I[key])}</textarea><div class="cap">${hint}</div></div>`;
   return `<div class="inp">${tabs}
-   <p class="sub" style="max-width:860px">Dán thẳng từ Google Sheets hoặc Excel (giữ dòng tiêu đề), hoặc gõ tay với dấu <code>|</code> giữa các cột. Nhiều giá trị trong một ô thì cách nhau bằng dấu phẩy. Giờ rảnh viết <code>T2-T6 6-10; T7 8-12</code>, nghĩa là các ca bắt đầu từ 6h đến 9h. Trong ô nhập, cột có thể trông lệch nhau do độ dài chữ khác nhau; máy vẫn đọc đúng theo dấu tab. Dữ liệu chỉ lưu trong trình duyệt này. ${using}</p>
-   <div class="row"><label for="in-week">Tuần bắt đầu (thứ 2)</label><input id="in-week" type="date" data-in="week" value="${esc(I.week)}" class="b"></div>
-   ${ta('in-pt','pt','1. PT',`Cột: ${TPL.pt.join(' · ')}. Trống thì dùng mặc định: max ca/ngày 8, max ca liền 3, ca gãy 4 giờ, không trần ca tháng.`)}
+   <p class="sub" style="max-width:860px">Dán thẳng từ Google Sheets hoặc Excel (giữ dòng tiêu đề), hoặc gõ tay với dấu <code>|</code> giữa các cột. Nhiều giá trị trong một ô thì cách nhau bằng dấu phẩy. Khung trực HLV viết <code>T2-T6 6:15-10:15 Gym; T7 8-12</code> (ghi môn nếu khung chỉ dạy một môn). Giờ rảnh khách viết khoảng <code>T2 7-9</code> (bắt đầu 7:00, 7:30 hoặc 8:00) hoặc giờ cụ thể <code>T2,T4 7,8h30</code>. Buổi dài 60 phút, bắt đầu :00 hoặc :30. Trong ô nhập, cột có thể trông lệch nhau do độ dài chữ khác nhau; máy vẫn đọc đúng theo dấu tab. Dữ liệu chỉ lưu trong trình duyệt này. ${using}</p>
+   <div class="row"><label for="in-week">Tuần bắt đầu (thứ 2)</label><input id="in-week" type="date" data-in="week" value="${esc(I.week)}" class="b">
+    <label for="in-minhlv" style="margin-left:12px">Tối thiểu HLV/ngày</label><input id="in-minhlv" type="number" min="0" data-in="minhlv" value="${esc(I.minhlv??'2')}" class="b" style="width:70px"></div>
+   ${ta('in-pt','pt','1. PT',`Cột: ${TPL.pt.join(' · ')}. Có dòng tiêu đề thì thứ tự cột tuỳ ý. Trống thì dùng mặc định: dạy tối đa 8h/ngày, 3 buổi liền, ca gãy 4 giờ, trực tối đa 10h/ngày và 48h/tuần, không trần ca tháng.`)}
    ${ta('in-kh','kh','2. Khách gửi phiếu tuần này',`Cột: ${TPL.kh.join(' · ')}. "PT muốn" và "Vấn đề" để trống được. Tên PT phải khớp bảng 1 (tên đầy đủ hoặc tên gọi).`)}
    ${ta('in-lich','lich','3. Lịch DN đã xếp tay (tuỳ chọn, để so với máy)',`Cột: ${TPL.lich.join(' · ')}. Mỗi dòng một buổi. Có bảng này thì bước 4 thêm cột "Lịch DN" vào bảng chỉ số.`)}
    ${state.inErr&&state.inErr.length?`<div class="errs"><b>Chưa dùng được, còn ${state.inErr.length} lỗi:</b><ul>${state.inErr.slice(0,12).map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`:''}
    ${state.inOk?`<div class="note">Đã nạp ${PTS.length} PT, ${CL.length} khách${CUR.hand?`, ${CUR.hand.length} buổi lịch DN`:''}. Xem thẻ bên dưới để kiểm tra trước khi sang bước 2.</div>`:''}
    <div class="acts" style="margin-top:12px"><button class="b pri" data-apply>Kiểm tra và dùng dữ liệu này</button><button class="b" data-fill>Điền lại bằng dữ liệu mẫu</button></div></div>`;
+}
+function rosterHTML(){
+  const R=rosterCheck();
+  return `<section style="margin-top:20px"><h2>Kiểm tra lịch trực HLV <span class="chip ${R.warn.length?'bad':'ok'}">${R.warn.length?R.warn.length+' cảnh báo':'ổn'}</span></h2>
+  <p class="sub">Giờ trực tính từ khung trực, gộp các khung chồng nhau. Phần này chỉ cảnh báo, không chặn máy xếp buổi. Tối thiểu ${R.min} HLV/ngày.</p>
+  <div class="tw"><table class="ros"><tr><th>HLV</th>${DOWS.map((d,i)=>`<th class="n">${d} ${dm(i)}</th>`).join('')}<th class="n">Tuần</th></tr>
+  ${R.rows.map(r=>`<tr><td>${esc(r.p.name)}<br><small class="faint">trần ${r.p.dutyDayMax??'—'}h/ngày · ${r.p.dutyWeekMax??'—'}h/tuần</small></td>${r.day.map((m,d)=>`<td class="n${r.overDay[d]?' over':''}">${m?fh(m):'<span class="faint">nghỉ</span>'}</td>`).join('')}<td class="n${r.overWeek?' over':''}"><b>${fh(r.week)}</b></td></tr>`).join('')}
+  <tr><td class="muted">Có mặt</td>${R.present.map(n=>`<td class="n${n<R.min?' over':''}">${n}</td>`).join('')}<td></td></tr></table></div>
+  ${R.warn.length?`<div class="errs" style="border-color:var(--warn);background:var(--warn-soft)"><ul>${R.warn.map(w=>`<li>${esc(w)}</li>`).join('')}</ul></div>`:''}</section>`;
 }
 function step1(){
   const need=CL.reduce((a,c)=>a+c.n,0);
@@ -814,12 +888,13 @@ function step1(){
   <section><h2>Khách gửi phiếu <span class="chip">${CL.length}</span></h2><p class="sub">Cần xếp ${need} buổi. Môn và loại lớp lấy từ gói tập, khách không chọn lại mỗi tuần. Vấn đề sức khoẻ lấy từ CRM theo mã khách${CUR.kind==='mau'?' (demo dùng dữ liệu giả)':''}.</p><div class="cards">${CL.map(cCard).join('')}</div></section>
   <section><h2>PT nộp lịch rảnh <span class="chip">${PTS.length}</span></h2><p class="sub">Chuyên môn, loại lớp hợp, deal và giới hạn do studio khai trong hồ sơ PT. Giờ rảnh do PT nộp mỗi tuần.</p><div class="cards">${PTS.map(pCard).join('')}</div></section>
   </div>
-  <div class="lg"><span><i style="background:var(--free);border:0"></i>ô rảnh</span><span><i style="background:var(--line);border:0"></i>không rảnh</span><span>Mỗi lưới: cột là T2 đến CN, hàng là giờ bắt đầu ca từ 6h đến 20h.</span></div>
+  <div class="lg"><span><i style="background:var(--free);border:0"></i>trực / rảnh</span><span><i style="background:var(--line);border:0"></i>không</span><span>Mỗi lưới: cột là T2 đến CN, hàng là từng nửa giờ từ 6h đến 21h.</span></div>
+  ${rosterHTML()}
   <div class="acts"><button class="b pri r" data-go="2">Tiếp: chọn rule →</button></div>`;
 }
 function param(id){
   const each=f=>PTS.map(p=>`${p.short} ${f(p)}`).join(' · ');
-  return({G2:each(p=>p.dayMax),G3:each(p=>p.monthMax==null?'không trần':p.monthMax),G4:each(p=>p.runMax+' ca')+' · nghỉ 1 ca',G5:each(p=>p.gapMin+'h'),G6:'Tuần này không có PT theo ca',
+  return({G2:each(p=>p.dayMax+'h'),G3:each(p=>p.monthMax==null?'không trần':p.monthMax),G4:each(p=>p.runMax+' ca')+' · nghỉ 1 ca',G5:each(p=>p.gapMin+'h'),G6:'Tuần này không có PT theo ca',
     U5:each(p=>p.done+'/'+p.deal)+' (đã xếp/deal)',G1:'',U1:'',U2:'',U3:'',U4:'',U6:''})[id]||'';
 }
 function rrow(r,i){
@@ -852,14 +927,15 @@ function sessChip(s){
    ${s.bk.map(b=>`<span class="bk">${esc(CB[b.c].short)}<em class="${isTmp(b)?'t':''}">${isTmp(b)?'Gán tạm · ':b.ok&&b.rule!=='CS'?'CS chốt · ':''}${LABEL[b.rule]}</em></span>`).join('')}</button>`;
 }
 function calendar(){
-  const used=h=>SESS.some(s=>s.h===h);
+  const used=t=>SESS.some(s=>s.h===t);
   let h='<div class="cal"><div class="cg"><span class="dh"></span>'+DOWS.map((d,i)=>`<span class="dh">${d} ${dm(i)}</span>`).join('');
   let skip=[];
-  const flush=()=>{if(skip.length){h+=`<div class="brk">${skip[0]}h – ${skip[skip.length-1]+1}h: không có ca</div>`;skip=[]}};
-  for(const hr of HOURS){
+  // Dải trống chỉ 1 mốc 30 phút thì bỏ hẳn, không vẽ thanh ngăn.
+  const flush=()=>{if(skip.length>1)h+=`<div class="brk">${hm(skip[0])} – ${hm(skip[skip.length-1])}: không có buổi bắt đầu</div>`;skip=[]};
+  for(const hr of START){
     if(!used(hr)){skip.push(hr);continue}
     flush();
-    h+=`<span class="hh">${hr}h</span>`;
+    h+=`<span class="hh">${hm(hr)}</span>`;
     for(let d=0;d<7;d++)h+=`<div class="ce">${SESS.filter(s=>s.d===d&&s.h===hr).sort((a,b)=>PTS.indexOf(PB[a.p])-PTS.indexOf(PB[b.p])).map(sessChip).join('')}</div>`;
   }
   flush();
@@ -900,7 +976,7 @@ function todos(){
   const items=[];
   allBk().filter(x=>isTmp(x.b)).forEach(({s,b})=>items.push(`<button class="todo" data-s="${s.id}"><b>${esc(CB[b.c].short)} · ${slotS(s.d,s.h)} · PT ${PB[s.p].short}</b>${b.flags.filter(f=>f.code[0]==='T'||f.down).map(f=>`<span>${esc(f.text)}</span>${f.hint?`<span class="hint">${esc(f.hint)}</span>`:''}`).join('')}</button>`));
   RUN.unp.forEach(u=>items.push(`<button class="todo un" data-hc="${u.c}"><b>${esc(CB[u.c].short)} · thiếu ${u.miss} buổi</b>${u.flags.map(f=>`<span>${esc(f.text)}</span>`).join('')}${u.hints.map(h=>`<span class="hint">${esc(h)}</span>`).join('')}</button>`));
-  RUN.gaps.forEach(g=>items.push(`<button class="todo" data-hp="${g.p}"><b>PT ${PB[g.p].short} · ${DOWS[g.d]}</b><span>Trống ${g.g} tiếng giữa ca ${g.a}h và ca ${g.b}h: quá dài để ngồi chờ, chưa đủ ${PB[g.p].gapMin} tiếng để về nghỉ.</span></button>`));
+  RUN.gaps.forEach(g=>items.push(`<button class="todo" data-hp="${g.p}"><b>PT ${PB[g.p].short} · ${DOWS[g.d]}</b><span>Trống ${String(g.g).replace('.',',')} tiếng giữa buổi ${hm(g.a)} và buổi ${hm(g.b)}: quá dài để ngồi chờ, chưa đủ ${PB[g.p].gapMin} tiếng để về nghỉ.</span></button>`));
   return `<div class="box"><h3>Chờ CS chốt <span class="chip ${items.length?'w':''}">${items.length}</span></h3>${items.join('')||'<div class="muted" style="font-size:13.5px">Không có ca nào cần CS chốt.</div>'}</div>`;
 }
 const GAPQ={T1:['Hai khách cùng chọn một PT, cùng một ô','Ai được ưu tiên? Theo thâm niên, theo gói, hay ai gửi trước?'],
@@ -958,9 +1034,9 @@ function step3(){
 /* ===== Bước 4 ===== */
 // Yêu cầu đổi lịch trong tuần (kịch bản demo). d,h: buổi khách muốn đổi; av: giờ rảnh mới khách báo.
 const REQS=[
-  {c:'truc',d:2,h:8,av:'3,4:17-19',text:'Thứ 4 bận việc, xin dời sang chiều T5 hoặc T6.'},
-  {c:'lan',d:3,h:18,av:'4:17-19',text:'Thứ 5 tăng ca, xin dời sang tối T6.'},
-  {c:'ha',d:4,h:7,av:'4:8;5:8-10',text:'Sáng T6 đưa con đi học, xin lùi 8h hoặc sáng T7.'},
+  {c:'truc',d:2,h:480,av:'T5,T6 17,18,19',text:'Thứ 4 bận việc, xin dời sang chiều T5 hoặc T6.'},
+  {c:'lan',d:3,h:1080,av:'T6 17,18,19',text:'Thứ 5 tăng ca, xin dời sang tối T6.'},
+  {c:'ha',d:4,h:420,av:'T6 8h30; T7 8-11',text:'Sáng T6 đưa con đi học, xin lùi 8h30 hoặc sáng T7.'},
 ];
 const REASONS=['Khách yêu cầu','PT xin đổi','CS thấy hợp hơn','Khác'];
 const reqSess=r=>SESS.find(s=>s.d===r.d&&s.h===r.h&&s.bk.some(b=>b.c===r.c));
@@ -1053,8 +1129,7 @@ function step4(){
 }
 
 /* ===== Tab Hệ thống chạy ===== */
-const avTxt=av=>{const by={};[...av].forEach(k=>{const[d,h]=k.split('|').map(Number);(by[d]=by[d]||[]).push(h)});
-  return Object.keys(by).slice(0,2).map(d=>{const hs=by[d].sort((a,b)=>a-b);return`${DOWS[d]} ${hs[0]}h–${hs[hs.length-1]+1}h`}).join(', ')+(Object.keys(by).length>2?', …':'')};
+const avTxt=av=>avHuman(av);
 function schTable(rows){
   return `<div class="tw"><table><tr><th>Trường</th><th>Kiểu</th><th>Ý nghĩa</th><th>Ví dụ trong demo</th></tr>${rows.map(r=>`<tr><td><code>${r[0]}</code></td><td>${r[1]}</td><td>${r[2]}</td><td class="ex">${esc(r[3]??'')}</td></tr>`).join('')}</table></div>`;
 }
@@ -1065,7 +1140,7 @@ function diagram(){
   let g=`<text class="t" x="16" y="24">Đầu vào</text>`;
   ins.forEach(([t,s],i)=>{const y=36+i*62;g+=B(16,y,170,48,t,[s],i===5?'w':'');g+=`<line class="ar" x1="186" y1="${y+24}" x2="204" y2="${y+24}"/>`});
   g+=`<line class="ar" x1="204" y1="60" x2="204" y2="370"/>`+A(204,215,234,215);
-  g+=B(234,150,180,130,'1. Chuẩn bị',['Lưới 7 ngày × 15 giờ','Nạp ca đã xếp trong tháng','Xếp thứ tự khách:','chọn PT trước,','ít ô rảnh trước']);
+  g+=B(234,150,180,130,'1. Chuẩn bị',['Lưới 7 ngày, mốc 30 phút','Nạp ca đã xếp trong tháng','Xếp thứ tự khách:','chọn PT trước,','ít ô rảnh trước']);
   g+=A(414,215,452,215);
   g+=`<rect class="lp" x="452" y="30" width="290" height="400" rx="12"/><text class="t" x="466" y="52">2. Lặp: từng buổi của từng khách</text>`;
   const inner=[['Lọc rule nền N1–N4',['đúng môn, hai bên rảnh, ca còn chỗ']],['Lọc rule giới hạn G1–G6',['chỉ rule đang bật']],['U1 PT khách chọn',['PT bận thì thử hoán đổi']],['Chọn theo rule ưu tiên',[UORD.filter(id=>id!=='U1').join(' → ')]],['Ghi ca + nhãn rule',['edge case → gán tạm T1–T7']]];
@@ -1104,18 +1179,18 @@ function sysTab(){
     ['pt_id','mã','',p.id],['ten','chuỗi','',p.name],['hop_dong','full_time · part_time · theo_ca','Theo ca chỉ dùng khi PT khác không nhận được (G6)',p.ct],
     ['mon_day[]','danh sách môn','Lọc ở N1',p.kinds.join(', ')],['chuyen_mon[]','danh sách vấn đề','So với vấn đề của khách ở U2',p.spec.join(', ')],
     ['loai_lop_chuyen[]','1-1 · 1-2','So với loại lớp của gói ở U3',p.fit.join(', ')],['ca_thang_deal','số','Mẫu số tỉ lệ ca (U5)',p.deal],
-    ['ca_thang_max','số, có thể trống','G3',p.monthMax??'trống'],['ca_ngay_max','số','G2',p.dayMax],['ca_lien_tuc_max','số, mặc định 3','G4',p.runMax],
+    ['ca_thang_max','số, có thể trống','G3',p.monthMax??'trống'],['ca_ngay_max','giờ dạy/ngày','G2',p.dayMax],['gio_truc_ngay_max','giờ, mặc định 10','Cảnh báo lịch trực',p.dutyDayMax],['gio_truc_tuan_max','giờ, mặc định 48','Cảnh báo lịch trực',p.dutyWeekMax],['ca_lien_tuc_max','số, mặc định 3','G4',p.runMax],
     ['nghi_sau_chuoi','số ca, mặc định 1','G4',p.rest],['ca_gay_min','giờ, mặc định 4','G5',p.gapMin]])}</div>
-   <div><h3>Phiếu PT tuần <small>PT nộp mỗi tuần</small></h3>${schTable([['pt_id','mã','',p.id],['tuan','ngày thứ 2','',DAYS[0]],['o_ranh[]','danh sách (ngày, giờ bắt đầu)','Ca 1 tiếng tròn giờ, 6h–20h. Lọc ở N3',avTxt(P.av)],['nghi[]','danh sách ngày','PT báo nghỉ','']])}
+   <div><h3>Phiếu PT tuần <small>PT nộp mỗi tuần</small></h3>${schTable([['pt_id','mã','',p.id],['tuan','ngày thứ 2','',DAYS[0]],['khung_truc[]','danh sách (ngày, giờ:phút–giờ:phút, môn)','Buổi 60 phút phải nằm gọn trong khung, đúng môn của khung (N3). Dùng để tính giờ trực',P.avTxt],['nghi[]','danh sách ngày','PT báo nghỉ','']])}
     <h3 style="margin-top:16px">Gói tập <small>khách chốt khi mua gói</small></h3>${schTable([['goi_tap_id','mã','',''],['kh_id','mã','',c.id],['mon','môn','N1',c.kind],['loai_lop','1-1 · 1-2','U3, N4 (lớp ghép)',c.cls],['so_buoi_con_lai','số','Chưa dùng trong demo','']])}</div>
    <div><h3>Hồ sơ khách <small>lấy từ CRM theo mã KH</small></h3>${schTable([['kh_id','mã','',c.id],['ten','chuỗi','',c.name],['van_de[]','danh sách vấn đề','U2, cảnh báo T3. Demo dùng dữ liệu giả',c.issue]])}</div>
-   <div><h3>Phiếu khách tuần <small>khách gửi mỗi tuần</small></h3>${schTable([['kh_id','mã','',cp.id],['goi_tap_id','mã','Lấy môn và loại lớp từ gói',''],['so_buoi','số','Số buổi muốn tập tuần này',cp.n],['o_ranh[]','danh sách (ngày, giờ)','N2',avTxt(cp.av)],['pt_muon_id','mã, có thể trống','U1. Khách chọn PT được xếp trước',cp.pref?PB[cp.pref].name:'trống'],['ghi_chu','chuỗi','CS đọc, máy không dùng','']])}</div>
+   <div><h3>Phiếu khách tuần <small>khách gửi mỗi tuần</small></h3>${schTable([['kh_id','mã','',cp.id],['goi_tap_id','mã','Lấy môn và loại lớp từ gói',''],['so_buoi','số','Số buổi muốn tập tuần này',cp.n],['o_ranh[]','khoảng hoặc giờ bắt đầu cụ thể','N2. Ví dụ "T2 7-9" hoặc "T2,T4 7,8h30"',avTxt(cp.av)],['pt_muon_id','mã, có thể trống','U1. Khách chọn PT được xếp trước',cp.pref?PB[cp.pref].name:'trống'],['ghi_chu','chuỗi','CS đọc, máy không dùng','']])}</div>
    <div><h3>Bộ rule lần xếp <small>FFL chỉnh trước khi bấm xếp</small></h3>${schTable([['rule_id','mã','N, G, U như bảng dưới','U2'],['bat','có/không','Rule N luôn bật',''],['thu_tu','số','Chỉ rule U',UORD.join(' → ')],['tham_so','theo rule','Phần lớn lấy từ hồ sơ PT','']])}
     <p class="cap">Bộ rule được chụp lại và lưu kèm lịch tuần đó.</p></div>
   </div></section>
 
   <section><h2>Máy xử lý từng buổi</h2><ol class="alg">
-   <li><b>Chuẩn bị.</b> Dựng lưới 7 ngày × 15 giờ. Nạp số ca mỗi PT đã xếp trong tháng (để tính tỉ lệ ca).</li>
+   <li><b>Chuẩn bị.</b> Dựng lưới 7 ngày, buổi dài 60 phút, bắt đầu mỗi 30 phút từ 6:00 đến 20:00. Kiểm lịch trực HLV (giờ/ngày, giờ/tuần, số HLV có mặt). Nạp số ca mỗi PT đã xếp trong tháng (để tính tỉ lệ ca).</li>
    <li><b>Xếp thứ tự khách.</b> Khách có chọn PT xếp trước, sau đó tới khách ít ô rảnh nhất.<small>Khách khó xếp cần được giữ chỗ trước khi ô bị người khác lấy.</small></li>
    <li><b>Liệt kê lựa chọn.</b> Mỗi lựa chọn là một cặp (ô giờ khách rảnh, PT). Bỏ cặp phạm rule nền, rồi bỏ cặp phạm rule giới hạn đang bật. Máy đếm mỗi rule đã bỏ bao nhiêu cặp.</li>
    <li><b>PT khách chọn (U1).</b> PT đó còn ô thì xếp luôn. PT đang bận vì khách không chọn đích danh thì dời khách kia sang PT khác cùng giờ. Bận vì khách cũng chọn đích danh thì không tự quyết, ghi T1.</li>
