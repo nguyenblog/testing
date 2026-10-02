@@ -124,7 +124,7 @@ Nguyên tắc: gặp edge case thì máy vẫn đưa ra phương án tốt nhấ
 |---|---|---|
 | T1 | PT khách chọn bận vì khách khác cũng chọn | Gán PT khác, gợi ý phương án hỏi khách kia đổi ca |
 | T2 | PT khách chọn không khai rảnh hoặc chạm giới hạn | Gán PT khác |
-| T3 | Không có PT đúng chuyên môn trống | Gán PT khác chuyên môn |
+| T3 | Không có PT đúng chuyên môn trống, **hoặc có nhưng bị rule ưu tiên xếp trên (ví dụ Loại lớp) loại trước** | Gán PT khác chuyên môn. Trường hợp sau: nêu tên PT đúng chuyên môn, rule đã loại PT đó, và ô CS có thể đổi sang (user chốt 02/10) |
 | T4 | Phải dùng PT không hợp loại lớp (ví dụ PT chuyên 1-1 dạy 1-2) | Gán, đánh dấu "không khuyến nghị" |
 | T5 | Xếp xong mà lớp 1-2 vẫn chỉ có 1 khách | Giữ lớp, CS quyết ghép thêm hay PT dạy như 1-1 |
 | T6 | Phải dùng PT theo ca | Gán |

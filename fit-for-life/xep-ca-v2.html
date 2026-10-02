@@ -300,11 +300,18 @@ function book(c,x,bk){
   s.bk.push({c:c.id,flags:[],...bk});return s;
 }
 // Cờ về độ khớp PT. Dùng cho cả ca mới lẫn ca bị dời.
-function fitFlags(c,p,cands,viaPref){
+function fitFlags(c,p,cands,viaPref,steps){
   const f=[];
   if(c.issue&&on('U2')&&!p.spec.includes(c.issue)){
+    const sp=cands?cands.filter(x=>x.p.spec.includes(c.issue)):[];
     if(viaPref)f.push({code:'T3',text:`Khách chọn PT ${p.short}, nhưng PT ${p.short} không chuyên ${c.issue}. Máy vẫn xếp theo ý khách.`});
-    else if(!cands||!cands.some(x=>x.p.spec.includes(c.issue)))f.push({code:'T3',text:`Không có PT chuyên ${c.issue} nhận được ô nào khách rảnh.`});
+    else if(!sp.length)f.push({code:'T3',text:`Không có PT chuyên ${c.issue} nhận được ô nào khách rảnh.`});
+    else{
+      // Có PT đúng chuyên môn nhận được, nhưng bị rule ưu tiên xếp trên loại trước.
+      const x=sp[0],st=(steps||[]).find(s=>s.dropped&&s.dropped.includes(x.p.id));
+      f.push({code:'T3',text:`PT ${x.p.short} chuyên ${c.issue} nhận được ${c.short}, nhưng bị loại vì rule "${st?RB[st.id].name:'ưu tiên khác'}" xếp trên "Chuyên môn". Máy xếp PT ${p.short}, không chuyên ${c.issue}.`,
+        hint:`CS cân nhắc đổi sang PT ${x.p.short} ở ô ${slotS(x.d,x.h)}${st&&st.id==='U3'?` (PT ${x.p.short} hợp lớp ${x.p.fit.join(', ')}, gói của khách là ${c.cls})`:''}.`});
+    }
   }
   if(on('U3')&&!p.fit.includes(c.cls))f.push({code:'T4',text:`PT ${p.short} hợp dạy lớp ${p.fit.join(', ')}, không hợp lớp ${c.cls}. Không khuyến nghị.`});
   if(p.ct==='oc')f.push({code:'T6',text:`Phải dùng PT theo ca.`});
@@ -375,7 +382,7 @@ function placeOne(c){
   }
   if(!o.cands.length){RUN.unp.push({c:c.id,miss:c.n-placed(c),flags,hints:diag(c)});return false}
   const r=narrow(c,o.cands);
-  flags.push(...fitFlags(c,r.win.p,o.cands,false));
+  flags.push(...fitFlags(c,r.win.p,o.cands,false,r.steps));
   if(r.decide==='TIE')flags.push({code:'T7',text:`PT ${r.left.map(id=>PB[id].short).join(', ')} ngang nhau, không rule nào phân được. Máy lấy theo thứ tự.`});
   book(c,r.win,{rule:r.decide,flags,trace:trace({steps:r.steps,win:r.win})});return true;
 }
