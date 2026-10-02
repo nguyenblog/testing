@@ -195,6 +195,11 @@ input.b{cursor:text}
 .errs{border:1px solid var(--bad);background:var(--bad-soft);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:13.5px}
 .errs ul{margin:6px 0 0 18px}
 th.hd,td.hd{border-left:2px solid var(--line)}
+.bars{display:grid;gap:6px;font-size:13px}
+.br{display:grid;grid-template-columns:minmax(0,11em) 1fr 2.5em;gap:8px;align-items:center}
+.br span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.br i{display:block;height:10px;border-radius:3px;background:var(--accent);width:var(--w);min-width:2px}
+.br b{text-align:right;font-variant-numeric:tabular-nums}
 .theme{position:fixed;bottom:12px;right:12px;font-size:12px;border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;padding:5px 12px;cursor:pointer;z-index:6}
 .theme:hover{color:var(--ink)}
 </style>
@@ -542,6 +547,124 @@ function applyMove(c,s0,x,reason,req){
   WK.log.push({ver:WK.locked?WK.ver:null,phase:WK.locked?'tuan':'chot',c:c.id,from,to:x?{d:x.d,h:x.h,p:x.p.id}:null,reason,req,deltas});
   return s;
 }
+
+/* ===== Đọc thread CS (Lark/Zalo) thành nhật ký sự kiện ===== */
+const THR_YEAR=2026;
+const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+const RX_HEAD=/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),\s+(\d{1,2}):(\d{2})\s*([AP]M)$/i;
+const RX_SESS=/^(T[2-7]|CN)\s*\(?\s*(\d{1,2})\/(\d{1,2})\s*\)?\s*(?:-\s*)?(?:(\d{1,2})h(\d{2})?)?\s*(?:-\s*)?(.*\b(?:Pilates|Gym)\b.*)$/i;
+const RX_TIME=/(?:T[2-7]|CN)\s*\(?\s*(\d{1,2})\/(\d{1,2})\s*\)?\s*(\d{1,2})h(\d{2})?/i;
+const HONOR=/^(chị|chi|anh|chú|chu|cô|co|em|bạn|ban)\s+/i;
+const cleanBullet=l=>l.replace(/^[\s*•\-–·]+/,'').trim();
+const dt=(d,m,h,mi)=>new Date(Date.UTC(THR_YEAR,m-1,d,h||0,mi||0));
+const fmtDT=x=>x?`${String(x.getUTCDate()).padStart(2,'0')}/${x.getUTCMonth()+1} ${x.getUTCHours()}h${x.getUTCMinutes()?String(x.getUTCMinutes()).padStart(2,'0'):''}`:'';
+function parseNames(t){
+  const out=[];let empty=0;
+  t.split('+').map(x=>x.trim()).filter(Boolean).forEach(x=>{
+    if(/^\(\s*\)$/.test(x)){empty++;return}
+    const g=x.match(/^\((1-[124])\s+(.+)\)$/);
+    if(g){out.push({name:g[2].trim(),guest:g[1]});return}
+    x=x.replace(/\b\d{9,11}\b/g,'').replace(/\s*-\s*$/,'').trim();
+    if(x)out.push({name:x});
+  });
+  return{names:out,empty};
+}
+// "Pilates 1-4 A + B + () - HLV @X => Pilates 1-4 B + () + ()"
+function parseSessLine(line){
+  const m=line.match(RX_SESS);if(!m)return null;
+  const[,dow,dd,mm,hh,mi,rest0]=m;
+  const[before,after]=rest0.split('=>').map(x=>x&&x.trim());
+  const b=before.match(/^(Trial\s+)?(Pilates|Gym)\s*(1-[124]'?)?\s*-?\s*(.*?)\s*-\s*HLV\s*@?\s*(.+)$/i);
+  if(!b)return null;
+  const nm=parseNames(b[4]);
+  let aft=null;
+  if(after){const a=after.match(/^(?:Pilates|Gym)\s*(1-[124]'?)?\s*-?\s*(.*)$/i);if(a)aft=parseNames(a[2])}
+  return{dow:dow.toUpperCase(),at:dt(+dd,+mm,hh!=null?+hh:0,mi?+mi:0),hasHour:hh!=null,trial:!!b[1],kind:b[2][0].toUpperCase()+b[2].slice(1).toLowerCase(),cls:b[3]||(b[1]?'trial':''),
+    names:nm.names,empty:nm.empty,hlv:b[5].replace(/^HLV\s+/i,'').trim(),after:aft};
+}
+function splitMsgs(text){
+  const L=text.normalize('NFC').split(/\r?\n/);const msgs=[];let cur=null;
+  for(let i=0;i<L.length;i++){
+    const h=L[i].trim().match(RX_HEAD);
+    if(h){
+      let author='';
+      if(cur){for(let j=cur.lines.length-1;j>=0;j--){if(cur.lines[j].trim()){author=cur.lines.splice(j,1)[0].trim();break}}}
+      else{for(let j=i-1;j>=0;j--)if(L[j].trim()){author=L[j].trim();break}}
+      let hr=+h[3]%12+(h[5].toUpperCase()==='PM'?12:0);
+      cur={author,at:new Date(Date.UTC(THR_YEAR,MON[h[1].toLowerCase()]-1,+h[2],hr,+h[4])),lines:[]};msgs.push(cur);continue;
+    }
+    if(!cur){cur={author:'',at:null,lines:[]};msgs.push(cur)}
+    cur.lines.push(L[i]);
+  }
+  return msgs.filter(m=>m.lines.some(l=>l.trim()));
+}
+function readThread(text){
+  const ev=[],unk=[];
+  splitMsgs(text).forEach(msg=>{
+    const body=msg.lines.map(cleanBullet).filter(l=>l&&!/^\(edited\)$/i.test(l));
+    const isCancel=body.some(l=>/^b[áa]o\s+h(uỷ|ủy|uy)/i.test(l));
+    let sess=null,recs=[],cur=null,explicit=false;const notes=[];
+    const close=()=>{if(sess&&isCancel){(explicit?recs.filter(r=>r.explicit):recs).forEach(r=>ev.push(r))}recs=[];cur=null;explicit=false};
+    for(const l of body){
+      const f=fold(l);
+      if(/^b[áa]o\s+h(uỷ|ủy|uy)/i.test(l)||/^(update|cập nhật)\s+lịch/i.test(l)||/^this message was recalled/i.test(l))continue;
+      const sl=parseSessLine(l);
+      if(sl){
+        close();sess=sl;
+        if(isCancel){
+          const gone=sl.after?sl.names.filter(n=>!sl.after.names.some(a=>fold(a.name)===fold(n.name))):sl.names;
+          recs=gone.map(n=>({type:'huy',sess:sl,client:n.name,guest:n.guest,post:msg.at,author:msg.author,lines:[]}));
+        }else ev.push({type:sl.trial?'trial':'dat',sess:sl,client:sl.names.map(n=>n.name).join(' + '),post:msg.at,author:msg.author,lines:[]});
+        continue;
+      }
+      if(!sess){unk.push(l);continue}
+      if(!isCancel){const e=ev[ev.length-1];if(e&&e.sess===sess)e.lines.push(l);continue}
+      const nm=l.match(/^(.{2,40}?)\s+(?:\(1-[124]\)\s+)?(?:bị\s+)?(?:hu[ỷy]|hủy|huy|ko đến|không đến|ko ghé|không ghé)(?=[\s,.:;]|$)/i);
+      if(nm&&!/^(lý|lí)\s*do|^(t?gian|giờ|thời gian)\s+báo/i.test(l)&&!/\b(ko|không)\s+bị\s+h/i.test(l)){
+        const name=nm[1].replace(HONOR,'').trim();
+        let r=recs.find(x=>fold(x.client).includes(fold(name))||fold(name).includes(fold(x.client)));
+        if(!r){r={type:'huy',sess,client:name,post:msg.at,author:msg.author,lines:[]};recs.push(r)}
+        r.explicit=true;explicit=true;cur=r;r.lines.push(l);continue;
+      }
+      const tgt=cur?[cur]:recs;
+      if(tgt.length)tgt.forEach(r=>r.lines.push(l));else notes.push(l);
+    }
+    close();
+    if(notes.length&&!ev.length)unk.push(...notes);
+  });
+  ev.forEach(finishEv);
+  // Huỷ rồi đặt lại cho cùng khách ở sau trong thread → coi là đổi lịch.
+  ev.forEach((e,i)=>{if(e.type!=='huy')return;const k=fold(e.client);
+    // chỉ nối khi tin đặt lại đăng trong vòng 2 giờ sau tin huỷ
+    const nb=ev.slice(i+1).find(x=>x.type==='dat'&&(!e.post||!x.post||(x.post-e.post)<=2*36e5)&&x.sess.names.some(n=>fold(n.name).includes(k)||k.includes(fold(n.name))));
+    if(nb)e.moved=nb});
+  return{ev,unk};
+}
+function finishEv(e){
+  const txt=e.lines.join(' · '),f=fold(txt);
+  e.reason=(e.lines.find(l=>/^(lý|lí)\s*do/i.test(l))||'').replace(/^(lý|lí)\s*do\s*:?\s*/i,'');
+  if(e.type!=='huy'){e.note=txt;return}
+  const tl=e.lines.find(l=>/(t?gian|giờ|thời gian)\s+báo/i.test(l))||'';
+  const tm=tl.match(RX_TIME)||txt.match(RX_TIME);
+  e.repAt=tm?dt(+tm[1],+tm[2],+tm[3],tm[4]?+tm[4]:0):null;e.repSrc=tm?'ghi':(e.post?'giờ đăng':null);
+  const rep=e.repAt||e.post;
+  e.lead=rep&&e.sess.hasHour?(e.sess.at-rep)/36e5:null;
+  if(/khong du|ko du/.test(f))e.kind='studio';
+  else if(/(ko|khong) (den|ghe)|(ko|khong) bao\b(?! hlv)|sau (gio|h) tap/.test(f)&&!(e.repAt&&e.lead>0))e.kind='vang';
+  else e.kind='huy';
+  if(/(ko|khong) (tinh )?buoi/.test(f))e.charged=false;else if(/tinh buoi/.test(f))e.charged=true;else e.charged=null;
+  e.exception=/lan dau/.test(f)?'Huỷ lần đầu của gói mới':null;
+}
+// Rule tính buổi khi khách huỷ: noCharge = báo trước ≥ X giờ thì không tính; charge = báo trước < Y giờ thì tính.
+function expectCharge(e,R){
+  if(e.kind==='studio')return{v:null,t:'Studio huỷ lớp'};
+  if(e.kind==='vang')return{v:true,t:'Vắng, không báo'};
+  if(e.lead==null)return{v:null,t:'Không rõ giờ báo'};
+  if(e.lead<0)return{v:true,t:'Báo sau giờ tập'};
+  if(e.lead<R.charge)return{v:true,t:`Báo trước < ${R.charge}h`};
+  if(e.lead>=R.noCharge)return{v:false,t:`Báo trước ≥ ${R.noCharge}h`};
+  return{v:null,t:`${R.charge}–${R.noCharge}h: chưa có rule`,gap:true};
+}
 const isTmp=b=>!b.ok&&b.flags.some(f=>f.code[0]==='T'||f.down);
 /*ENGINE-END*/
 
@@ -636,7 +759,7 @@ function saveInput(){try{localStorage.setItem(LS,JSON.stringify(state.inp))}catc
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const SRC={ffl:['FFL nói','ok'],pm:['PM chốt tạm, FFL chưa duyệt','w'],ai:['Máy đề xuất, chưa ai duyệt','w'],base:['Điều kiện nền','']};
-const state={step:1,ran:false,late:false,sel:null,hi:null,prev:null,chg:new Set(),chg4:new Set(),dirty:false,anim:true,mv:null,opts:null,met:null,inMode:'mau',inp:null,inErr:null,inOk:false};
+const state={step:1,ran:false,late:false,sel:null,hi:null,prev:null,chg:new Set(),chg4:new Set(),dirty:false,anim:true,mv:null,opts:null,met:null,inMode:'mau',inp:null,inErr:null,inOk:false,thr:{text:'',rule:{noCharge:3,charge:2}},thrTsv:''};
 const keysNow=()=>new Set(SESS.flatMap(s=>s.bk.map(b=>[b.c,s.d,s.h,s.p].join('|'))));
 function doRun(){
   const prev=state.ran?keysNow():null;
@@ -1021,27 +1144,166 @@ function sysTab(){
   <section><h2>Demo chưa làm</h2><p class="lead">Lớp 1-4 · ca 45/90 phút hoặc lệch giờ · lịch cố định hằng tuần · gói hết giữa tuần · buổi bù · nối CRM thật · hạn chót và số lần đổi lịch (chờ FFL trả lời).</p></section>
   </div>`;
 }
+
+/* ===== Tab Đọc thread CS ===== */
+const THR_LS='xepca.v2.thread';
+const THR_SAMPLE=`Thu Trang
+Sep 25, 2:59 PM
+T6 25/9 16h - Trial Pilates - Mai Anh - 0900000000 - HLV @Bích Ngọc
+Khách chưa tập môn gì trước đây, quan tâm lớp 1-4. Mục tiêu giảm cân, đau mỏi vai gáy
+Hải Yến
+Sep 25, 3:24 PM
+Báo huỷ
+* T6 (25/9) 19h - Pilates 1-4 NT Phương Thảo + Kim Chi + Lan Hương + () - HLV @Đức Minh => Pilates 1-4 Kim Chi + Lan Hương + () + ()
+* Phương Thảo huỷ
+   * Lý do: bận
+   * Giờ báo: T6 25/9 15h20 (>3h)
+   * Ko tính buổi, ko tính comm
+Thu Trang
+Sep 25, 5:01 PM
+Báo hủy:
+* T6 25/9 17h - Pilates 1-2 Ngọc Hà + Thanh Tâm - HLV @Bích Ngọc => Pilates 1-2 Thanh Tâm + ()
+* Ngọc Hà hủy
+   * Lý do: mưa
+   * Tgian báo: T6 25/9 16h39 <2h
+   * Tính buổi tính comm
+Thu Trang
+Sep 25, 5:16 PM
+Báo hủy:
+* T6 25/9 - 18h - Pilates 1-1 Diệu Linh - HLV @Bích Ngọc
+* Lý do: họp chưa xong
+* Tgian báo: T6 25/9 17h14 <2h
+* Hủy lần đầu của gói mới => ko buổi, ko comm
+Admin
+Sep 25, 7:10 PM
+T7 26/9 - 16h - Pilates 1-1 Quế Chi - HLV @Bích Ngọc
+Hải Yến
+Sep 26, 7:20 AM
+Báo huỷ
+* T7 (26/9) 7h - Pilates 1-2 Hồng Nhung + () - HLV @Đức Minh
+   * Lý do: ngủ quên
+   * Tgian báo: sau giờ tập T7 26/9 7h20
+   * Tính buổi tính comm
+Hải Yến
+Sep 26, 10:05 AM
+Báo huỷ
+* T7 (26/9) 9h - Pilates 1-2 Bảo Châu + Minh Anh - HLV @Đức Minh => Pilates 1-2 Bảo Châu + ()
+* Minh Anh ko đến ko báo
+   * Tính buổi tính comm
+Hải Yến
+Sep 26, 11:46 AM
+Báo huỷ
+* T7 (26/9) 18h - Pilates 1-4 NP Thanh Hà + Mỹ Duyên + () + () - HLV @Bích Ngọc
+* Thanh Hà huỷ
+   * Lý do: mệt
+   * Thời gian báo huỷ: T7 26/9 11h24
+   * Ko tính buổi, ko tính comm
+* Mỹ Duyên bị huỷ do ko đủ số lượng học viên
+Hải Yến
+Sep 26, 12:38 PM
+Báo huỷ
+* T7 (26/9) 16h - Pilates 1-1 Quế Chi - HLV @Bích Ngọc
+   * Lý do: đổi sang CN
+   * Thời gian báo huỷ: T7 26/9 12h26
+   * Ko tính buổi, ko tính comm
+Hải Yến
+Sep 26, 12:38 PM
+CN (27/9) 11h - Gym 1-1 Quế Chi - HLV @HLV Quang
+Hải Yến
+Sep 26, 2:10 PM
+Báo huỷ
+* T7 (26/9) 17h - Pilates 1-4 Thu Hà + Kiều My + Ánh Dương + Ngọc Lan - HLV @Bích Ngọc => Pilates 1-4 Thu Hà + Kiều My + Ngọc Lan + ()
+* Ánh Dương huỷ
+   * Lý do: đi công tác
+   * Thời gian báo huỷ: T7 26/9 14h30
+   * Tính buổi, tính comm
+Admin
+Sep 27, 6:57 AM
+Báo huỷ:
+* CN (27/9) 8h - Pilates 1-4 Hoài An + Gia Hân + Tú Anh + Minh Châu - HLV @Bích Ngọc => Pilates 1-4 Minh Châu + () + () + ()
+* Tú Anh huỷ
+   * Lí do: sốt
+   * Tgian báo CN 27/9 6h20 <2h
+   * tính buổi tính com
+* Gia Hân huỷ
+   * Tgian báo CN 27/9 7h01 <2h
+   * tính buổi tính com
+* Hoài An huỷ sau giờ tập
+   * Tgian báo CN 27/9 8h02
+   * tính buổi tính com`;
+function loadThr(){try{return localStorage.getItem(THR_LS)??''}catch(e){return''}}
+function saveThr(v){try{localStorage.setItem(THR_LS,v)}catch(e){}}
+const KLAB={huy:'Huỷ',vang:'Vắng / báo sau giờ',studio:'Studio huỷ lớp',dat:'Đặt lịch',trial:'Trial'};
+const leadTxt=e=>e.lead==null?'—':e.lead<0?`sau giờ ${Math.round(-e.lead*60)}′`:e.lead<1?`${Math.round(e.lead*60)} phút`:`${(Math.round(e.lead*10)/10).toString().replace('.',',')}h`;
+const sessTxt=x=>`${x.dow} ${x.at.getUTCDate()}/${x.at.getUTCMonth()+1}${x.hasHour?` ${x.at.getUTCHours()}h${x.at.getUTCMinutes()?String(x.at.getUTCMinutes()).padStart(2,'0'):''}`:''}`;
+const clsTxt=x=>`${x.kind} ${x.cls}`.trim();
+function bucket(e){if(e.kind==='vang'||e.lead!=null&&e.lead<0)return'Sau giờ / không báo';if(e.lead==null)return'Không rõ';
+  return e.lead<2?'< 2h':e.lead<3?'2–3h':e.lead<6?'3–6h':e.lead<24?'6–24h':'≥ 24h'}
+const BUCKETS=['Sau giờ / không báo','< 2h','2–3h','3–6h','6–24h','≥ 24h','Không rõ'];
+function countBy(arr,k){const o={};arr.forEach(x=>{const v=k(x);o[v]=(o[v]||0)+1});return o}
+function thrTab(){
+  const T=state.thr;const R=T.rule;
+  let res=null;try{res=T.text.trim()?readThread(T.text):null}catch(err){res={ev:[],unk:['Lỗi đọc: '+err]}}
+  const ev=res?res.ev:[],cx=ev.filter(e=>e.type==='huy');
+  cx.forEach(e=>{e.exp=expectCharge(e,R);e.ok=e.exp.v==null||e.charged==null?null:e.exp.v===e.charged});
+  const charged=cx.filter(e=>e.charged===true).length,free=cx.filter(e=>e.charged===false).length;
+  const mism=cx.filter(e=>e.ok===false),gap=cx.filter(e=>e.exp.gap);
+  const byB=countBy(cx.filter(e=>e.kind!=='studio'),bucket),byH=countBy(cx,e=>e.sess.hlv);
+  const rows=ev.map((e,i)=>{const s=e.sess;
+    const res=e.type!=='huy'?`<span class="faint">${esc(e.note||'')}</span>`:
+      `${e.charged==null?'<span class="faint">không ghi</span>':e.charged?'<span class="chip w">Tính buổi</span>':'<span class="chip">Không tính</span>'}`;
+    const chk=e.type!=='huy'?'':e.exp.v==null?`<span class="chip ${e.exp.gap?'bad':''}">${e.exp.t}</span>`:
+      e.ok===false?`<span class="chip bad">Lệch: rule ra ${e.exp.v?'tính':'không tính'}</span>${e.exception?`<br><small class="muted">${esc(e.exception)}</small>`:''}`:e.ok?`<span class="chip ok">Khớp</span>`:'';
+    return `<tr><td class="n">${sessTxt(s)}</td><td>${clsTxt(s)}${s.empty?` <span class="faint">+${s.empty} ghế trống</span>`:''}</td><td>${esc(s.hlv)}</td><td><b>${esc(e.client)}</b>${e.guest?` <span class="chip">khách gói ${e.guest}</span>`:''}${e.moved?`<br><small class="muted">→ đặt lại ${sessTxt(e.moved.sess)} ${clsTxt(e.moved.sess)}</small>`:''}</td>
+     <td><span class="chip ${e.type==='huy'?(e.kind==='vang'?'w':e.kind==='studio'?'bad':''):'ok'}">${KLAB[e.type==='huy'?e.kind:e.type]}</span></td>
+     <td class="n">${e.type==='huy'?leadTxt(e)+(e.repSrc==='giờ đăng'?'<br><small class="faint">theo giờ đăng</small>':''):''}</td><td>${esc(e.reason||'')}</td><td>${res}</td><td>${chk}</td></tr>`}).join('');
+  const tsv=[['Buổi','Lớp','HLV','Khách','Loại','Báo trước (giờ)','Lý do','Ghi nhận','Theo rule'].join('\t'),...ev.map(e=>[sessTxt(e.sess),clsTxt(e.sess),e.sess.hlv,e.client,KLAB[e.type==='huy'?e.kind:e.type],e.lead==null?'':Math.round(e.lead*100)/100,e.reason||'',e.type!=='huy'?'':e.charged==null?'':e.charged?'Tính buổi':'Không tính',e.exp?e.exp.t:''].join('\t'))].join('\n');
+  state.thrTsv=tsv;
+  const bar=(o,keys)=>{const mx=Math.max(1,...Object.values(o));return `<div class="bars">${(keys||Object.keys(o).sort((a,b)=>o[b]-o[a])).map(k=>`<div class="br"><span>${esc(k)}</span><i style="--w:${(o[k]||0)/mx*100}%"></i><b>${o[k]||0}</b></div>`).join('')}</div>`};
+  return `<div class="sys fade">
+  <section><h2>Đọc thread CS</h2><p class="lead">Dán nguyên văn thread đổi lịch từ Lark hoặc Zalo (copy chữ, không phải ảnh). Máy tách từng tin, nhận ra báo huỷ, vắng, studio huỷ lớp, đặt lịch và trial, tính số giờ báo trước, rồi so với rule tính buổi. Dữ liệu chỉ nằm trong trình duyệt này.</p>
+   <textarea id="thr-in" data-thr spellcheck="false" rows="10" style="white-space:pre-wrap;margin-top:12px">${esc(T.text)}</textarea>
+   <div class="acts" style="margin-top:10px"><button class="b pri" data-thrread>Đọc thread</button><button class="b" data-thrsample>Dùng ví dụ (tên giả)</button><button class="b" data-thrclear>Xoá</button>
+    <span class="row" style="margin-left:auto">Báo trước ≥ <input id="thr-no" class="b" type="number" min="0" step="0.5" value="${R.noCharge}" style="width:70px" data-thrrule="noCharge"> h thì không tính · dưới <input id="thr-yes" class="b" type="number" min="0" step="0.5" value="${R.charge}" style="width:70px" data-thrrule="charge"> h thì tính</span></div></section>
+  ${res?`<section>
+   <div class="kpi"><div><b>${ev.length}</b>sự kiện</div><div><b>${cx.filter(e=>e.kind==='huy').length}</b>khách huỷ</div><div class="w"><b>${cx.filter(e=>e.kind==='vang').length}</b>vắng hoặc báo sau giờ</div><div class="bd"><b>${cx.filter(e=>e.kind==='studio').length}</b>studio huỷ lớp</div><div><b>${ev.filter(e=>e.type==='dat').length}</b>đặt lịch</div><div><b>${ev.filter(e=>e.type==='trial').length}</b>trial</div><div><b>${charged}/${charged+free}</b>huỷ bị tính buổi</div></div>
+   <div class="below" style="margin-top:0">
+    <div><h3>Lệch hoặc thiếu rule <span class="chip ${mism.length+gap.length?'bad':'ok'}">${mism.length+gap.length}</span></h3>${mism.length+gap.length?[...mism,...gap].map(e=>`<div class="fl">${esc(e.client)} · ${sessTxt(e.sess)} · báo trước ${leadTxt(e)}<small>${e.exp.gap?'Nằm trong khoảng chưa có rule.':`Ghi nhận ${e.charged?'tính':'không tính'}, rule ra ${e.exp.v?'tính':'không tính'}.`}${e.exception?' Ghi chú: '+esc(e.exception)+'.':''}</small></div>`).join(''):'<div class="muted" style="font-size:13.5px">Mọi ca huỷ đều khớp rule đang đặt.</div>'}
+     <p class="cap">Mỗi dòng ở đây là một câu FFL cần trả lời, hoặc một ngoại lệ nên thành rule.</p></div>
+    <div><h3>Huỷ theo mức báo trước</h3>${bar(byB,BUCKETS.filter(k=>byB[k]))}</div>
+    <div><h3>Huỷ theo HLV</h3>${bar(byH)}</div>
+   </div></section>
+  <section><div class="tah"><h3>Nhật ký (${ev.length})</h3><button class="b sm" data-thrcopy>Chép bảng để dán vào Sheets</button></div>
+   <div class="tw"><table><tr><th class="n">Buổi</th><th>Lớp</th><th>HLV</th><th>Khách</th><th>Loại</th><th class="n">Báo trước</th><th>Lý do</th><th>Ghi nhận</th><th>Theo rule</th></tr>${rows}</table></div>
+   ${res.unk.length?`<div class="box" style="margin-top:12px"><h3>Dòng máy chưa hiểu <span class="chip">${res.unk.length}</span></h3>${res.unk.slice(0,20).map(u=>`<div class="cap">${esc(u)}</div>`).join('')}</div>`:''}</section>`
+  :'<p class="muted">Dán thread rồi bấm "Đọc thread", hoặc thử với ví dụ.</p>'}
+  </div>`;
+}
 function render(){
   $('#steps').innerHTML=[['1','Đầu vào'],['2','Rule'],['3','Kết quả'],['4','Chốt & trong tuần']].map(([n,t],i)=>`${i?'<span class="sp">›</span>':''}<button role="tab" aria-selected="${state.step==n}" data-go="${n}"><span class="no">${n}</span>${t}</button>`).join('')
-    +`<button role="tab" class="tabx" aria-selected="${state.step===0}" data-go="0">Hệ thống chạy</button>`;
+    +`<button role="tab" class="tabx" aria-selected="${state.step===5}" data-go="5">Đọc thread CS</button><button role="tab" aria-selected="${state.step===0}" data-go="0">Hệ thống chạy</button>`;
   $('#meta').textContent=`Fit For Life · tuần ${weekLabel()} · `+(CUR.kind==='mau'?'dữ liệu mẫu, soạn theo kịch bản':`dữ liệu DN tự nhập · ${PTS.length} PT, ${CL.length} khách${CUR.hand?' · có lịch DN xếp tay để so':''}`);
   const app=$('#app');
-  app.innerHTML=state.step===0?sysTab():state.step===1?step1():state.step===2?step2():state.step===3?step3():step4();
+  app.innerHTML=state.step===5?thrTab():state.step===0?sysTab():state.step===1?step1():state.step===2?step2():state.step===3?step3():step4();
   app.classList.toggle('fade',state.anim);state.anim=false;
 }
 function go(n){
   n=+n;
-  if(n>=3&&(!state.ran||state.dirty))doRun();
+  if(n>=3&&n<=4&&(!state.ran||state.dirty))doRun();
   if(n===4&&!WK.may){WK.may=snap();WK.hand=CUR.hand?handSnap():null}
   if(n!==4)state.mv=null;
   if(n!==state.step){state.step=n;state.anim=true;window.scrollTo(0,0)}
   render();
 }
 document.addEventListener('click',e=>{
-  const t=e.target.closest('[data-go],[data-tg],[data-up],[data-dn],[data-reset],[data-s],[data-hc],[data-hp],[data-close],[data-late],[data-mv],[data-ok],[data-pick],[data-mvx],[data-lock],[data-req],[data-met],[data-more],[data-inm],[data-tpl],[data-apply],[data-fill],[data-usemau],[data-mvav]');
+  const t=e.target.closest('[data-go],[data-tg],[data-up],[data-dn],[data-reset],[data-s],[data-hc],[data-hp],[data-close],[data-late],[data-mv],[data-ok],[data-pick],[data-mvx],[data-lock],[data-req],[data-met],[data-more],[data-inm],[data-tpl],[data-apply],[data-fill],[data-usemau],[data-mvav],[data-thrread],[data-thrsample],[data-thrclear],[data-thrcopy]');
   if(!t||t.disabled)return;const d=t.dataset;
   if(d.go)return go(d.go);
-  if(d.inm){state.inMode=d.inm;state.inErr=null;state.inOk=false}
+  if('thrread' in d){state.thr.text=$('#thr-in').value;saveThr(state.thr.text)}
+  else if('thrsample' in d){state.thr.text=THR_SAMPLE}
+  else if('thrclear' in d){state.thr.text='';saveThr('')}
+  else if('thrcopy' in d){navigator.clipboard?.writeText(state.thrTsv).then(()=>{t.textContent='Đã chép'},()=>{t.textContent='Không chép được'});return}
+  else if(d.inm){state.inMode=d.inm;state.inErr=null;state.inOk=false}
   else if(d.tpl){const txt=TPL[d.tpl].join('\t');const ta=document.querySelector(`[data-in="${d.tpl}"]`);
     navigator.clipboard?.writeText(txt).then(()=>{t.textContent='Đã chép'},()=>{ta.value=txt+'\n'+ta.value;ta.select()});return}
   else if('fill' in d){state.inp=sampleInput();saveInput();state.inErr=null;state.inOk=false}
@@ -1068,8 +1330,9 @@ document.addEventListener('click',e=>{
   else if('late' in d){state.late=true;const prev=keysNow();addLate();state.chg=new Set([...keysNow()].filter(k=>!prev.has(k)));state.sel=null;state.hi=null}
   render();
 });
+document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.thrrule;if(k){const v=parseFloat(e.target.value);if(!isNaN(v)){state.thr.rule[k]=v;state.thr.text=$('#thr-in').value;render()}}});
 document.addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset.in;if(k){state.inp[k]=e.target.value;saveInput()}});
-state.inp=loadInput();
+state.inp=loadInput();state.thr.text=loadThr();
 defaultCfg();seed();resetWeek();render();
 </script>
 </body>

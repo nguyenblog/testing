@@ -55,6 +55,36 @@ Còn 2 câu từ trước, cậu chưa xác nhận:
 4. Buổi không đổi được thì chuyển tuần sau hay mất? (trùng câu buổi bù)
 5. Khách đổi thẳng với PT qua Zalo: PT có phải báo CS cập nhật không?
 
+## Từ lịch và thread thật tuần 21/09 – 04/10 (user gửi 2026-10-02)
+
+Nguồn: ảnh lịch trực nhân sự, lưới trực theo môn, lịch buổi tập, và thread "Báo huỷ / Đổi lịch" của CS. Chưa hỏi lại chị quản lý.
+
+**Đã rõ từ dữ liệu:**
+- Lên lịch 2 lớp: (1) **lịch trực HLV** theo khung giờ và môn, có tổng giờ/ngày và giờ/tuần, ô đỏ khi quá (ví dụ 10,3h/ngày, 54h/tuần), tối thiểu 2 HLV/ngày và 1 CS/ngày; (2) **buổi tập** xếp bên trong khung trực.
+- Có lớp **1-4**, Gym cũng có 1-2. Ca dài 1 tiếng, có ca bắt đầu :30. Khung trực lẻ 15 phút.
+- Lớp nhóm là **chỗ cố định có ghế trống** `()`. Khách huỷ thì thành ghế trống; khách khác có thể chuyển vào lấp.
+- **Rule tính buổi khi huỷ** (khớp 16/17 ca trong thread): báo trước ≥ 3h thì không tính buổi, không tính comm; báo < 2h, sau giờ tập, hoặc không đến không báo thì tính buổi, tính comm.
+- **Ngoại lệ:** huỷ lần đầu của gói mới thì không tính, kể cả báo < 2h.
+- **Studio huỷ lớp 1-4 khi không đủ học viên** (còn 1 khách sau khi người kia huỷ sớm). Khi bạn cùng lớp huỷ sát giờ (vẫn tính buổi) thì lớp vẫn chạy.
+- **Ghép chéo gói:** khách 1-4 vào lớp 1-2, ký hiệu `1-2' A + (1-4 B)`.
+- **Đổi gói:** 4 buổi 1-4 đổi được 1 buổi 1-1.
+- Ghế trống lớp 1-4: nhân viên được đăng ký sát giờ để audit chất lượng, không tính comm, khách đặt vẫn được ưu tiên.
+- Đổi lịch trong thread = huỷ + đặt mới, có thể đổi cả môn. HLV thả 👍 để xác nhận.
+- Trial có ghi chú mục tiêu và vấn đề sức khoẻ: đây là nguồn cho trường `van_de`.
+- Lịch còn có khối không phải buổi tập: `BLOCK`, `HỌP MKT`, `CMSN`.
+
+**Câu cần hỏi chị quản lý:**
+1. Báo huỷ trong khoảng 2–3h trước giờ tập thì tính buổi không?
+2. Lớp nhóm cần tối thiểu mấy khách để chạy? (đoán: số khách bị tính buổi ≥ 2 với lớp 1-4; lớp 1-2 chạy với 1 khách)
+3. `BLOCK` (KHOA BLOCK, Toen BLOCK) là HLV khoá giờ bận hay giữ chỗ?
+4. Viết tắt trước tên khách: `NT`, `NP`; trong lịch: `ĐT`, `TBC`, `CMSN`?
+5. Lớp 1-4 có cố định hằng tuần không?
+6. Trần giờ HLV: tối đa bao nhiêu giờ/ngày, giờ/tuần? Tối thiểu HLV mỗi môn theo từng khung giờ?
+7. "Huỷ lần đầu của gói mới" áp dụng cho mọi gói hay chỉ gói mới mua?
+8. Lịch buổi tập đang ở công cụ nào, có xuất được file (.ics / CSV) không?
+
+**Đã làm trong demo:** tab "Đọc thread CS" đọc thread dán vào thành nhật ký sự kiện và so với rule tính buổi (ngưỡng chỉnh được). Chạy trên thread thật 25–27/9: 23 sự kiện, 17 huỷ/vắng, 16 khớp rule, 1 lệch (ngoại lệ huỷ lần đầu gói mới).
+
 ## Danh sách đầy đủ
 
 ### 1. Phía khách
