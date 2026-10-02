@@ -155,6 +155,31 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .used{display:flex;gap:4px;flex-wrap:wrap}
 .used .chip.off{text-decoration:line-through;opacity:.55}
 .banner{border:1px solid var(--line);border-left:4px solid var(--ink);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:14px;background:var(--soft)}
+
+/* tab Hệ thống chạy */
+.sys{display:grid;gap:28px}
+.sys section{min-width:0}
+.sys .lead{max-width:760px;color:var(--muted);font-size:14px;margin:4px 0 0}
+.dg{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--bg);margin-top:12px}
+.dg svg{display:block;width:100%;min-width:1000px;height:auto;color:var(--ink)}
+.dg .bx{fill:var(--bg);stroke:var(--faint)}
+.dg .bx.k{fill:var(--accent-soft);stroke:var(--accent)}
+.dg .bx.w{fill:var(--warn-soft);stroke:var(--warn)}
+.dg .lp{fill:none;stroke:var(--faint);stroke-dasharray:5 4}
+.dg .ar{stroke:var(--muted);fill:none;stroke-width:1.4}
+.dg text{fill:var(--ink);font-size:12.5px;font-family:inherit}
+.dg text.t{font-weight:600;font-size:13px}
+.dg text.s{fill:var(--muted);font-size:11.5px}
+.dg text.l{fill:var(--muted);font-size:11px}
+.dg .ah{fill:var(--muted)}
+figcaption{font-size:13px;color:var(--muted);margin-top:8px;max-width:820px}
+.sch{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:16px;margin-top:12px}
+.sch>div{border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+.sch h3 small{font-weight:400;color:var(--muted);margin-left:6px}
+td code,.sys code{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:var(--soft);border:1px solid var(--line);border-radius:4px;padding:0 4px;white-space:nowrap}
+td.ex{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--muted)}
+ol.alg{padding-left:22px;max-width:820px;font-size:14px} ol.alg li{margin:8px 0} ol.alg li small{display:block;color:var(--muted);font-size:13px}
+.steps .tabx{margin-left:auto}
 .theme{position:fixed;bottom:12px;right:12px;font-size:12px;border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;padding:5px 12px;cursor:pointer;z-index:6}
 .theme:hover{color:var(--ink)}
 </style>
@@ -770,10 +795,104 @@ function step4(){
    <div class="below">${logBox()}${reasons()}</div>
    <div class="acts"><button class="b" data-go="3">← Kết quả máy xếp</button></div>`;
 }
+
+/* ===== Tab Hệ thống chạy ===== */
+const avTxt=av=>{const by={};[...av].forEach(k=>{const[d,h]=k.split('|').map(Number);(by[d]=by[d]||[]).push(h)});
+  return Object.keys(by).slice(0,2).map(d=>{const hs=by[d].sort((a,b)=>a-b);return`${DOWS[d]} ${hs[0]}h–${hs[hs.length-1]+1}h`}).join(', ')+(Object.keys(by).length>2?', …':'')};
+function schTable(rows){
+  return `<div class="tw"><table><tr><th>Trường</th><th>Kiểu</th><th>Ý nghĩa</th><th>Ví dụ trong demo</th></tr>${rows.map(r=>`<tr><td><code>${r[0]}</code></td><td>${r[1]}</td><td>${r[2]}</td><td class="ex">${esc(r[3]??'')}</td></tr>`).join('')}</table></div>`;
+}
+function diagram(){
+  const A=(x1,y1,x2,y2)=>`<line class="ar" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" marker-end="url(#ah)"/>`;
+  const B=(x,y,w,h,t,sub,cls='')=>`<rect class="bx ${cls}" x="${x}" y="${y}" width="${w}" height="${h}" rx="8"/><text class="t" x="${x+12}" y="${y+20}">${t}</text>${(sub||[]).map((s,i)=>`<text class="s" x="${x+12}" y="${y+37+i*15}">${s}</text>`).join('')}`;
+  const ins=[['Hồ sơ PT','studio khai'],['Phiếu PT tuần','PT nộp giờ rảnh'],['Gói tập','môn, loại lớp, số buổi'],['Hồ sơ khách','vấn đề, từ CRM'],['Phiếu khách tuần','giờ rảnh, PT muốn'],['Bộ rule tuần','bật/tắt, thứ tự']];
+  let g=`<text class="t" x="16" y="24">Đầu vào</text>`;
+  ins.forEach(([t,s],i)=>{const y=36+i*62;g+=B(16,y,170,48,t,[s],i===5?'w':'');g+=`<line class="ar" x1="186" y1="${y+24}" x2="204" y2="${y+24}"/>`});
+  g+=`<line class="ar" x1="204" y1="60" x2="204" y2="370"/>`+A(204,215,234,215);
+  g+=B(234,150,180,130,'1. Chuẩn bị',['Lưới 7 ngày × 15 giờ','Nạp ca đã xếp trong tháng','Xếp thứ tự khách:','chọn PT trước,','ít ô rảnh trước']);
+  g+=A(414,215,452,215);
+  g+=`<rect class="lp" x="452" y="30" width="290" height="400" rx="12"/><text class="t" x="466" y="52">2. Lặp: từng buổi của từng khách</text>`;
+  const inner=[['Lọc rule nền N1–N4',['đúng môn, hai bên rảnh, ca còn chỗ']],['Lọc rule giới hạn G1–G6',['chỉ rule đang bật']],['U1 PT khách chọn',['PT bận thì thử hoán đổi']],['Chọn theo rule ưu tiên',[UORD.filter(id=>id!=='U1').join(' → ')]],['Ghi ca + nhãn rule',['edge case → gán tạm T1–T7']]];
+  inner.forEach(([t,s],i)=>{const y=66+i*68;g+=B(470,y,226,50,t,s,i===4?'k':'');if(i<4)g+=A(583,y+50,583,y+66)});
+  g+=`<text class="l" x="590" y="${66+50+12}">ô × PT hợp lệ</text>`;
+  g+=`<path class="ar" d="M696 363 H722 V91 H702" marker-end="url(#ah)"/><text class="l" x="734" y="300" transform="rotate(90 734 300)" text-anchor="middle">buổi tiếp theo</text>`;
+  g+=`<text class="l" x="470" y="420">Hết lựa chọn → T9, gợi ý nới 1 rule</text>`;
+  g+=A(742,215,780,215);
+  g+=B(780,160,170,80,'3. Rà cuối',['Lớp 1-2 lẻ → T5','Khoảng trống dài → G5']);
+  g+=A(865,240,865,300);
+  g+=B(780,300,170,50,'Bản Máy xếp',['lịch nháp + chờ CS'],'k');
+  g+=`<path class="ar" d="M950 325 H972 V61 H996" marker-end="url(#ah)"/><text class="l" x="984" y="190" transform="rotate(90 984 190)" text-anchor="middle">danh sách gán tạm</text>`;
+  g+=B(996,36,190,50,'4. CS chốt',['giữ phương án hoặc đổi']);
+  g+=A(1091,86,1091,110);
+  g+=B(996,110,190,44,'Bản chốt v1',[],'k');
+  g+=A(1091,154,1091,184)+`<text class="l" x="1098" y="174">khách xin đổi</text>`;
+  g+=B(996,184,190,64,'5. Đổi 1 buổi',['các ca khác bị khoá','bắt buộc chọn lý do']);
+  g+=A(1091,248,1091,272);
+  g+=B(996,272,190,44,'Bản v2, v3… (thực tế)',[],'k');
+  g+=A(1091,316,1091,346);
+  g+=B(996,346,190,64,'Bảng chỉ số',['so Máy · Chốt · Thực tế','lệch theo tiêu chí, lý do']);
+  return `<figure><div class="dg"><svg viewBox="0 0 1200 440" role="img" aria-label="Luồng máy xếp ca: 6 nguồn đầu vào, chuẩn bị, vòng lặp lọc rule và chọn PT cho từng buổi, rà cuối, ra bản máy xếp, CS chốt thành v1, đổi trong tuần thành v2, v3, rồi so ba bản trong bảng chỉ số.">
+   <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker></defs>${g}</svg></div>
+   <figcaption>Máy chỉ quyết ở bước 1–3. Từ bước 4, người quyết là CS, máy chỉ đưa phương án và ghi lại. Bộ rule tuần được lưu kèm lịch nên bước 5 vẫn xếp hạng phương án theo đúng rule đã dùng lúc đầu tuần.</figcaption></figure>`;
+}
+function sysTab(){
+  const p=DEF_PTS[0],P=PTS[0],c=CL.find(x=>x.issue&&!x.pref)||CL[0],cp=CL.find(x=>x.pref)||CL[0];
+  const srcChip=r=>{const[t,k]=SRC[r.src];return`<span class="chip ${k}">${t}</span>`};
+  const ruleRows=g=>(g==='U'?UORD.map(id=>RB[id]):RULES.filter(r=>r.g===g)).map(r=>`<tr><td><code>${r.id}</code></td><td><b>${r.name}</b><br><small class="muted">${r.full}</small></td><td>${srcChip(r)}<br><small class="faint">${esc(r.ref)}</small></td></tr>`).join('');
+  const TACT={T1:'Gán PT khác, gợi ý ô để CS hỏi khách kia đổi',T2:'Gán PT khác',T3:'Gán PT khác chuyên môn, nêu PT đúng chuyên môn nếu có',T4:'Gán, đánh dấu không khuyến nghị',T5:'Giữ lớp, CS quyết ghép thêm hay dạy như 1-1',T6:'Gán PT theo ca',T7:'Lấy theo thứ tự, CS xem lại',T9:'Không gán, gợi ý nới 1 rule',HD:'Dời khách, báo nếu khách bị dời mất PT phù hợp'};
+  return `<div class="sys fade">
+  <section><h2>Hệ thống chạy thế nào</h2><p class="lead">Trang này dành cho PM: dữ liệu nào đi vào, máy xử lý theo thứ tự nào, lưu lại những gì. Các bảng rule, mã gán tạm và chỉ số bên dưới đọc trực tiếp từ code của demo, nên luôn khớp với bản đang chạy.</p>${diagram()}</section>
+
+  <section><h2>Schema đầu vào</h2><p class="lead">Tên trường theo bản thiết kế. Hồ sơ PT, gói tập và hồ sơ khách đổi ít; hai phiếu tuần nộp lại mỗi tuần.</p><div class="sch">
+   <div><h3>Hồ sơ PT <small>studio khai, đổi khi deal đổi</small></h3>${schTable([
+    ['pt_id','mã','',p.id],['ten','chuỗi','',p.name],['hop_dong','full_time · part_time · theo_ca','Theo ca chỉ dùng khi PT khác không nhận được (G6)',p.ct],
+    ['mon_day[]','danh sách môn','Lọc ở N1',p.kinds.join(', ')],['chuyen_mon[]','danh sách vấn đề','So với vấn đề của khách ở U2',p.spec.join(', ')],
+    ['loai_lop_chuyen[]','1-1 · 1-2','So với loại lớp của gói ở U3',p.fit.join(', ')],['ca_thang_deal','số','Mẫu số tỉ lệ ca (U5)',p.deal],
+    ['ca_thang_max','số, có thể trống','G3',p.monthMax??'trống'],['ca_ngay_max','số','G2',p.dayMax],['ca_lien_tuc_max','số, mặc định 3','G4',p.runMax],
+    ['nghi_sau_chuoi','số ca, mặc định 1','G4',p.rest],['ca_gay_min','giờ, mặc định 4','G5',p.gapMin]])}</div>
+   <div><h3>Phiếu PT tuần <small>PT nộp mỗi tuần</small></h3>${schTable([['pt_id','mã','',p.id],['tuan','ngày thứ 2','',DAYS[0]],['o_ranh[]','danh sách (ngày, giờ bắt đầu)','Ca 1 tiếng tròn giờ, 6h–20h. Lọc ở N3',avTxt(P.av)],['nghi[]','danh sách ngày','PT báo nghỉ','']])}
+    <h3 style="margin-top:16px">Gói tập <small>khách chốt khi mua gói</small></h3>${schTable([['goi_tap_id','mã','',''],['kh_id','mã','',c.id],['mon','môn','N1',c.kind],['loai_lop','1-1 · 1-2','U3, N4 (lớp ghép)',c.cls],['so_buoi_con_lai','số','Chưa dùng trong demo','']])}</div>
+   <div><h3>Hồ sơ khách <small>lấy từ CRM theo mã KH</small></h3>${schTable([['kh_id','mã','',c.id],['ten','chuỗi','',c.name],['van_de[]','danh sách vấn đề','U2, cảnh báo T3. Demo dùng dữ liệu giả',c.issue]])}</div>
+   <div><h3>Phiếu khách tuần <small>khách gửi mỗi tuần</small></h3>${schTable([['kh_id','mã','',cp.id],['goi_tap_id','mã','Lấy môn và loại lớp từ gói',''],['so_buoi','số','Số buổi muốn tập tuần này',cp.n],['o_ranh[]','danh sách (ngày, giờ)','N2',avTxt(cp.av)],['pt_muon_id','mã, có thể trống','U1. Khách chọn PT được xếp trước',cp.pref?PB[cp.pref].name:'trống'],['ghi_chu','chuỗi','CS đọc, máy không dùng','']])}</div>
+   <div><h3>Bộ rule lần xếp <small>FFL chỉnh trước khi bấm xếp</small></h3>${schTable([['rule_id','mã','N, G, U như bảng dưới','U2'],['bat','có/không','Rule N luôn bật',''],['thu_tu','số','Chỉ rule U',UORD.join(' → ')],['tham_so','theo rule','Phần lớn lấy từ hồ sơ PT','']])}
+    <p class="cap">Bộ rule được chụp lại và lưu kèm lịch tuần đó.</p></div>
+  </div></section>
+
+  <section><h2>Máy xử lý từng buổi</h2><ol class="alg">
+   <li><b>Chuẩn bị.</b> Dựng lưới 7 ngày × 15 giờ. Nạp số ca mỗi PT đã xếp trong tháng (để tính tỉ lệ ca).</li>
+   <li><b>Xếp thứ tự khách.</b> Khách có chọn PT xếp trước, sau đó tới khách ít ô rảnh nhất.<small>Khách khó xếp cần được giữ chỗ trước khi ô bị người khác lấy.</small></li>
+   <li><b>Liệt kê lựa chọn.</b> Mỗi lựa chọn là một cặp (ô giờ khách rảnh, PT). Bỏ cặp phạm rule nền, rồi bỏ cặp phạm rule giới hạn đang bật. Máy đếm mỗi rule đã bỏ bao nhiêu cặp.</li>
+   <li><b>PT khách chọn (U1).</b> PT đó còn ô thì xếp luôn. PT đang bận vì khách không chọn đích danh thì dời khách kia sang PT khác cùng giờ. Bận vì khách cũng chọn đích danh thì không tự quyết, ghi T1.</li>
+   <li><b>Lọc dần theo rule ưu tiên.</b> Đi từ rule trên xuống, mỗi rule chỉ giữ các lựa chọn tốt nhất theo rule đó. Rule nào làm số PT còn lại từ nhiều thành một thì là <i>rule quyết định</i>, ghi lên ca.<small>Không cộng điểm, nên lúc nào cũng nói được ca này do rule nào quyết.</small></li>
+   <li><b>Ghi ca.</b> Lớp 1-2 có thể ghép vào ca có sẵn. Gặp edge case thì vẫn ghi phương án tốt nhất, gắn mã T và đánh dấu gán tạm. Mỗi khách đi qua tối đa 4 vòng cho đủ số buổi.</li>
+   <li><b>Rà cuối.</b> Lớp 1-2 vẫn lẻ thì ghi T5. Khoảng trống trong ngày dài hơn 2 ca mà ngắn hơn mức PT khai thì ghi G5.<small>G5 chỉ kiểm cuối vì một khoảng trống có thể được lấp bởi ca xếp sau.</small></li>
+  </ol></section>
+
+  <section><h2>Bảng rule</h2><div class="sch">
+   <div><h3>Rule nền <small>luôn bật</small></h3><div class="tw"><table>${ruleRows('N')}</table></div></div>
+   <div><h3>Rule giới hạn <small>bật/tắt, tham số theo PT</small></h3><div class="tw"><table>${ruleRows('G')}</table></div></div>
+   <div><h3>Rule ưu tiên <small>theo thứ tự đang chọn ở bước 2</small></h3><div class="tw"><table>${ruleRows('U')}</table></div></div>
+   <div><h3>Mã gán tạm</h3><div class="tw"><table><tr><th>Mã</th><th>Tình huống</th><th>Máy làm gì</th></tr>${Object.keys(GAPQ).map(k=>`<tr><td><code>${k}</code></td><td>${GAPQ[k][0]}</td><td>${TACT[k]||''}</td></tr>`).join('')}</table></div>
+    <p class="cap">Mỗi mã cũng là một câu FFL cần trả lời. Mã nào lặp lại nhiều tuần là chỗ nên thành rule.</p></div>
+  </div></section>
+
+  <section><h2>Schema đầu ra</h2><div class="sch">
+   <div><h3>Ca tập</h3>${schTable([['ca_id','mã','',''],['pt_id, ngay, gio','','Một PT một giờ chỉ một ca',''],['mon, loai_lop','','Không trộn loại lớp trong 1 ca',''],['suc_chua','1 · 2','Lớp 1-2 tính 1 ca khi đếm ca PT',''],['buoi[]','danh sách Buổi','1 hoặc 2 khách','']])}</div>
+   <div><h3>Buổi <small>một khách trong một ca</small></h3>${schTable([['kh_id','mã','',''],['rule_quyet_dinh','mã rule','Hiện dưới tên khách trên lịch','U2'],['trang_thai','xếp theo rule · gán tạm · CS chốt · CS đổi','',''],['canh_bao[]','mã T + nội dung + gợi ý','Vào danh sách chờ CS',''],['dau_vet','số lựa chọn, rule đã cắt, các bước lọc','Phần "Máy đã xét thế nào"',''],['ly_do','chuỗi','Khi CS đổi','']])}</div>
+   <div><h3>Bản lịch</h3>${schTable([['ban','máy · v1 · v2…','v1 là bản gửi khách và PT',''],['ca[]','danh sách Ca tập','Bản chụp toàn tuần',''],['bo_rule','Bộ rule lần xếp','Mở lại tuần cũ vẫn giải thích được','']])}</div>
+   <div><h3>Lịch sử thay đổi</h3>${schTable([['ban','số','',''],['giai_doan','trước chốt · trong tuần','',''],['kh_id, tu, sang','','Sang trống nghĩa là huỷ, ghi buổi nợ',''],['ly_do','khách yêu cầu · PT xin đổi · CS thấy hợp hơn · khác','Bắt buộc',''],['anh_huong','chỉ số → mức thay đổi','Dùng cho bảng lệch','']])}</div>
+  </div></section>
+
+  <section><h2>Chỉ số so 3 bản</h2><div class="tw"><table><tr><th>Chỉ số</th><th>Cách tính</th><th>Tốt khi</th></tr>${MET.map(m=>`<tr><td><b>${m.name}</b></td><td>${m.sub||'mọi buổi'}</td><td>${m.up?'cao':'thấp'}</td></tr>`).join('')}<tr><td><b>Giữ nguyên lịch</b></td><td>buổi còn đúng ô và PT so với bản trước</td><td>cao</td></tr></table></div></section>
+
+  <section><h2>Demo chưa làm</h2><p class="lead">Lớp 1-4 · ca 45/90 phút hoặc lệch giờ · lịch cố định hằng tuần · gói hết giữa tuần · buổi bù · nối CRM thật · hạn chót và số lần đổi lịch (chờ FFL trả lời).</p></section>
+  </div>`;
+}
 function render(){
-  $('#steps').innerHTML=[['1','Đầu vào'],['2','Rule'],['3','Kết quả'],['4','Chốt & trong tuần']].map(([n,t],i)=>`${i?'<span class="sp">›</span>':''}<button role="tab" aria-selected="${state.step==n}" data-go="${n}"><span class="no">${n}</span>${t}</button>`).join('');
+  $('#steps').innerHTML=[['1','Đầu vào'],['2','Rule'],['3','Kết quả'],['4','Chốt & trong tuần']].map(([n,t],i)=>`${i?'<span class="sp">›</span>':''}<button role="tab" aria-selected="${state.step==n}" data-go="${n}"><span class="no">${n}</span>${t}</button>`).join('')
+    +`<button role="tab" class="tabx" aria-selected="${state.step===0}" data-go="0">Hệ thống chạy</button>`;
   const app=$('#app');
-  app.innerHTML=state.step===1?step1():state.step===2?step2():state.step===3?step3():step4();
+  app.innerHTML=state.step===0?sysTab():state.step===1?step1():state.step===2?step2():state.step===3?step3():step4();
   app.classList.toggle('fade',state.anim);state.anim=false;
 }
 function go(n){
