@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fit For Life — Máy xếp ca v2 (demo)</title>
+<style>
+:root{
+  --bg:#fffdf7; --soft:#f8f3e5; --ink:#1f1c16; --muted:#6b6557; --faint:#9a927f; --line:#ece5d2;
+  --accent:#0f8a70; --warn:#b7791f; --bad:#c0392b;
+  --accent-soft:color-mix(in srgb,var(--accent) 10%,var(--bg));
+  --warn-soft:color-mix(in srgb,var(--warn) 14%,var(--bg));
+  --bad-soft:color-mix(in srgb,var(--bad) 10%,var(--bg));
+  --free:color-mix(in srgb,var(--ink) 55%,var(--bg));
+  --ease:cubic-bezier(.2,.7,.2,1);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#16150f; --soft:#1d1b14; --ink:#eee9d8; --muted:#a29b88; --faint:#71695a; --line:#2b281d;
+  --accent:#22a086; --warn:#e0b04a; --bad:#f08070;}}
+:root[data-theme="dark"]{
+  --bg:#16150f; --soft:#1d1b14; --ink:#eee9d8; --muted:#a29b88; --faint:#71695a; --line:#2b281d;
+  --accent:#22a086; --warn:#e0b04a; --bad:#f08070;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1480px;margin:0 auto;padding:24px 16px 80px}
+h1{font-size:22px;font-weight:600;letter-spacing:-.01em}
+h2{font-size:17px;font-weight:600;display:flex;gap:8px;align-items:center}
+h3{font-size:14px;font-weight:600;margin:0 0 8px}
+p{margin:6px 0} b{font-weight:600}
+.muted{color:var(--muted)} .faint{color:var(--faint)} small{font-size:12.5px}
+.top{display:flex;gap:12px 24px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+.top .meta{color:var(--muted);font-size:13.5px}
+/* thanh bước */
+.steps{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:20px}
+.steps button{font:inherit;font-size:14.5px;font-weight:500;height:44px;padding:0 16px;border:0;border-bottom:2px solid transparent;background:none;color:var(--muted);cursor:pointer;white-space:nowrap;margin-bottom:-1px;display:flex;gap:8px;align-items:center;transition:color .12s,border-color .12s}
+.steps button:hover{color:var(--ink)}
+.steps button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.steps .no{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--soft);border:1px solid var(--line);font-size:12px;font-weight:600}
+.steps button[aria-selected="true"] .no{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.steps .sp{color:var(--faint);align-self:center}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fade{animation:fd .2s var(--ease)}
+@keyframes fd{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.fade{animation:none}*{transition:none!important}}
+/* nút */
+.b{font:inherit;font-size:14px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s}
+.b:hover{background:var(--soft);border-color:var(--faint)}
+.b:active{transform:translateY(1px)}
+.b.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.b.pri:hover{background:color-mix(in srgb,var(--ink) 85%,var(--bg))}
+.b:disabled{opacity:.4;cursor:default}
+.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:20px}
+.acts .r{margin-left:auto}
+@media(max-width:600px){.acts .b{white-space:normal;height:auto;min-height:36px;padding:6px 14px;text-align:left}}
+/* chip */
+.chip{display:inline-block;font-size:12px;font-weight:500;border-radius:999px;padding:1px 9px;white-space:nowrap;background:var(--soft);color:var(--muted);border:1px solid var(--line)}
+.chip.ok{background:var(--accent-soft);color:var(--accent);border-color:transparent;font-weight:600}
+.chip.w{background:var(--warn-soft);color:color-mix(in srgb,var(--warn) 65%,var(--ink));border-color:transparent;font-weight:600}
+.chip.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent;font-weight:600}
+/* bước 1 */
+.cols2{display:grid;grid-template-columns:5fr 3fr;gap:24px}
+.cols2>section{min-width:0}
+@media(max-width:1000px){.cols2{grid-template-columns:1fr}}
+.sub{color:var(--muted);font-size:13.5px;margin:2px 0 12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:12px}
+.card{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--bg);min-width:0}
+.card .nm{font-weight:600;font-size:15px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.card .chips{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0 8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13px;margin-bottom:10px}
+.kv span:nth-child(odd){color:var(--muted)}
+.mg{display:grid;grid-template-columns:22px repeat(7,1fr);gap:1px;font-size:10px;line-height:1;max-width:210px}
+.mg .d{text-align:center;color:var(--muted);padding-bottom:3px}
+.mg .h{color:var(--faint);text-align:right;padding-right:4px;font-variant-numeric:tabular-nums;height:8px;overflow:visible}
+.mg i{height:8px;border-radius:2px;background:var(--line)}
+.mg i.on{background:var(--free)}
+.mg i.s{background:var(--accent)}
+.cap{font-size:12px;color:var(--muted);margin-top:6px}
+/* bước 2 */
+.rg{border:1px solid var(--line);border-radius:12px;margin:12px 0;overflow:hidden}
+.rg>.hd{background:var(--soft);padding:10px 14px;font-weight:600;font-size:14px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.rg>.hd small{font-weight:400;color:var(--muted)}
+.rr{display:grid;grid-template-columns:52px minmax(0,3fr) minmax(0,2fr) auto;gap:8px 14px;padding:10px 14px;border-top:1px solid var(--line);align-items:center}
+.rr.u{grid-template-columns:52px 66px minmax(0,3fr) minmax(0,2fr) auto}
+.rr.off .tx,.rr.off .pm{opacity:.45}
+.rr .tx b{display:block;font-size:14.5px}
+.rr .tx span{font-size:13px;color:var(--muted)}
+.rr .tx code{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--faint);margin-left:6px;font-weight:400}
+.rr .pm{font-size:13px;color:var(--muted)}
+@media(max-width:820px){.rr,.rr.u{grid-template-columns:52px 1fr}.rr .pm,.rr .sr{grid-column:2}.rr.u .mv{grid-column:2}}
+.sw{width:40px;height:22px;border-radius:999px;border:1px solid var(--line);background:var(--soft);position:relative;cursor:pointer;transition:background .12s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--faint);transition:transform .12s var(--ease),background .12s}
+.sw[aria-checked="true"]{background:var(--accent);border-color:var(--accent)}
+.sw[aria-checked="true"]::after{transform:translateX(18px);background:#fff}
+.sw:disabled{opacity:.5;cursor:default}
+.mv{display:flex;gap:4px}
+.mv button{font:inherit;width:30px;height:28px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.mv button:hover{background:var(--soft)} .mv button:disabled{opacity:.3;cursor:default}
+.note{font-size:13px;color:var(--muted);border-left:3px solid var(--line);padding:2px 0 2px 12px;margin:10px 0}
+.note.w{border-color:var(--warn)}
+/* bước 3 */
+.kpi{display:flex;gap:8px 24px;flex-wrap:wrap;margin-bottom:14px}
+.kpi div{font-size:13px;color:var(--muted)} .kpi b{font-size:22px;color:var(--ink);margin-right:6px;font-variant-numeric:tabular-nums}
+.kpi .w b{color:var(--warn)} .kpi .bd b{color:var(--bad)}
+.l3{display:grid;grid-template-columns:210px minmax(0,1fr) 320px;gap:16px;align-items:start}
+.l3>div{min-width:0}
+@media(max-width:1180px){.l3{grid-template-columns:1fr}}
+.rail .it{display:block;width:100%;text-align:left;font:inherit;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:8px 10px;margin-bottom:6px;cursor:pointer;transition:background .12s,border-color .12s}
+.rail .it:hover{background:var(--soft)}
+.rail .it.sel{border-color:var(--accent);background:var(--accent-soft)}
+.rail .it b{font-size:14px;display:block}
+.rail .it span{font-size:12.5px;color:var(--muted)}
+.cal{border:1px solid var(--line);border-radius:12px;overflow-x:auto}
+.cg{display:grid;grid-template-columns:44px repeat(7,minmax(112px,1fr));min-width:830px}
+.cg .dh{font-size:12.5px;color:var(--muted);font-weight:600;padding:8px 6px;text-align:center;background:var(--soft);border-bottom:1px solid var(--line)}
+.cg .hh{font-size:11.5px;color:var(--faint);text-align:right;padding:3px 6px 0 0;font-variant-numeric:tabular-nums;border-top:1px solid var(--line)}
+.cg .ce{border-top:1px solid var(--line);border-left:1px solid var(--line);padding:3px;min-height:18px;display:flex;flex-direction:column;gap:3px}
+.cg .brk{grid-column:1/-1;font-size:11.5px;color:var(--faint);text-align:center;padding:3px;border-top:1px solid var(--line);background:var(--soft)}
+.ss{font:inherit;text-align:left;border:1px solid color-mix(in srgb,var(--accent) 40%,var(--bg));background:var(--accent-soft);color:var(--ink);border-radius:8px;padding:5px 7px;cursor:pointer;width:100%;transition:opacity .12s,box-shadow .12s}
+.ss:hover{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 25%,transparent)}
+.ss .pt{display:flex;justify-content:space-between;gap:6px;font-size:11.5px;color:var(--muted)}
+.ss .bk{display:block;font-size:13px;font-weight:600;line-height:1.3;margin-top:2px}
+.ss .bk em{display:block;font-style:normal;font-weight:400;font-size:11.5px;color:var(--accent)}
+.ss.tmp{border:1px dashed var(--warn);background:var(--warn-soft)}
+.ss.tmp .bk em.t{color:color-mix(in srgb,var(--warn) 65%,var(--ink))}
+.ss.chg{box-shadow:inset 0 0 0 2px var(--ink)}
+.ss.dim{opacity:.25}
+.ss.sel{box-shadow:0 0 0 2px var(--ink)}
+.lg{font-size:12.5px;color:var(--muted);display:flex;gap:6px 16px;flex-wrap:wrap;margin:8px 0 0}
+.lg i{display:inline-block;width:22px;height:12px;border-radius:4px;vertical-align:-1px;margin-right:5px;border:1px solid color-mix(in srgb,var(--accent) 40%,var(--bg));background:var(--accent-soft)}
+.lg i.t{border:1px dashed var(--warn);background:var(--warn-soft)}
+.lg i.c{box-shadow:inset 0 0 0 2px var(--ink)}
+.side .box{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;background:var(--bg)}
+.side .box.dt{border-color:var(--ink)}
+.side .x{float:right;font:inherit;border:0;background:none;color:var(--muted);cursor:pointer;font-size:13px}
+.side .x:hover{color:var(--ink)}
+.todo{display:block;width:100%;text-align:left;font:inherit;color:var(--ink);border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:8px;background:var(--bg);padding:8px 10px;margin-bottom:8px;cursor:pointer;transition:background .12s}
+.todo.un{border-left-color:var(--bad)}
+.todo:hover{background:var(--soft)}
+.todo b{font-size:13.5px;display:block}
+.todo span{font-size:12.5px;color:var(--muted);display:block;margin-top:2px}
+.todo span.hint{color:var(--ink)}
+ol.tr{padding-left:20px;font-size:13px;margin:6px 0} ol.tr li{margin:4px 0}
+ol.tr li.na{color:var(--faint)}
+.fl{font-size:13px;border-left:3px solid var(--warn);background:var(--warn-soft);padding:6px 10px;border-radius:0 8px 8px 0;margin:6px 0}
+.fl small{display:block;color:var(--muted);margin-top:2px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tw{overflow-x:auto}
+.below{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-top:20px}
+.below>div{border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+.used{display:flex;gap:4px;flex-wrap:wrap}
+.used .chip.off{text-decoration:line-through;opacity:.55}
+.banner{border:1px solid var(--line);border-left:4px solid var(--ink);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:14px;background:var(--soft)}
+.theme{position:fixed;bottom:12px;right:12px;font-size:12px;border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;padding:5px 12px;cursor:pointer;z-index:6}
+.theme:hover{color:var(--ink)}
+</style>
+</head>
+<body>
+<button class="theme" onclick="var r=document.documentElement,d=r.dataset.theme==='dark'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches);r.dataset.theme=d?'light':'dark'">Sáng / Tối</button>
+<div class="wrap">
+  <div class="top">
+    <div><h1>Máy xếp ca v2</h1><div class="meta">Fit For Life · bản demo · tuần 5/10 – 11/10/2026 · dữ liệu giả, soạn theo kịch bản</div></div>
+  </div>
+  <nav class="steps" id="steps" role="tablist"></nav>
+  <main id="app"></main>
+</div>
+
+<script>
+/*ENGINE-START*/
+/* ===== Máy xếp ca v2. Thiết kế: fit-for-life/may-xep-ca-v2-thiet-ke.md ===== */
+const DAYS=['2026-10-05','2026-10-06','2026-10-07','2026-10-08','2026-10-09','2026-10-10','2026-10-11'];
+const DOWS=['T2','T3','T4','T5','T6','T7','CN'];
+const HOURS=[6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+const dm=i=>{const[,m,d]=DAYS[i].split('-').map(Number);return d+'/'+m};
+const K=(d,h)=>d+'|'+h;
+const slotT=(d,h)=>`${DOWS[d]} ${dm(d)} · ${h}h–${h+1}h`;
+const slotS=(d,h)=>`${DOWS[d]} ${h}h`;
+const CT={ft:'Full-time',pt:'Part-time',oc:'Theo ca'};
+function parseAv(spec){const s=new Set();if(!spec)return s;spec.split(';').forEach(seg=>{const[ds,hs]=seg.split(':');const[a,b]=hs.split('-').map(Number);ds.split(',').map(Number).forEach(d=>{for(let h=a;h<=(isNaN(b)?a:b);h++)s.add(K(d,h))})});return s}
+
+// src: ffl = FFL nói · pm = PM chốt tạm, FFL chưa duyệt · ai = máy đề xuất, chưa ai duyệt · base = điều kiện nền
+const RULES=[
+  {id:'N1',g:'N',name:'Đúng môn',full:'PT dạy đúng môn của gói tập',src:'ffl',ref:'FFL 3.1 mục 1'},
+  {id:'N2',g:'N',name:'Khách rảnh',full:'Chỉ xếp vào ô khách khai rảnh',src:'base',ref:''},
+  {id:'N3',g:'N',name:'PT rảnh',full:'Chỉ xếp vào ô PT khai rảnh',src:'base',ref:''},
+  {id:'N4',g:'N',name:'Ca còn chỗ',full:'Lớp 1-1: PT phải trống. Lớp 1-2: PT trống, hoặc đang có lớp 1-2 còn 1 chỗ',src:'pm',ref:'Lớp ghép'},
+  {id:'G1',g:'G',name:'Khách 1 buổi/ngày',full:'Mỗi khách tối đa 1 buổi trong 1 ngày',src:'ai',ref:'Lấy từ bản demo cũ'},
+  {id:'G2',g:'G',name:'Trần ca mỗi ngày',full:'PT không dạy quá số ca/ngày của mình',src:'ffl',ref:'FFL 3.2 mục 5'},
+  {id:'G3',g:'G',name:'Trần ca mỗi tháng',full:'PT không vượt số ca tối đa trong tháng',src:'ffl',ref:'FFL 3.2 mục 4'},
+  {id:'G4',g:'G',name:'Ca liên tục',full:'PT dạy liền tối đa số ca của mình, sau đó nghỉ',src:'ffl',ref:'FFL 3.2 mục 6. Số ca nghỉ là máy đề xuất'},
+  {id:'G5',g:'G',name:'Ca gãy',full:'Khoảng trống trong ngày: tối đa 2 ca, hoặc đủ dài để PT về nghỉ',src:'ffl',ref:'FFL 3.2 mục 7. Ngưỡng 2 ca là máy đề xuất'},
+  {id:'G6',g:'G',name:'PT theo ca để sau cùng',full:'Chỉ dùng PT theo ca khi PT khác không nhận được',src:'pm',ref:'Chốt 25/09'},
+  {id:'U1',g:'U',name:'PT khách chọn',full:'Khách chọn đích danh PT nào thì xếp PT đó. PT bận thì thử hoán đổi',src:'ffl',ref:'FFL 3.1 mục 2 và 4'},
+  {id:'U3',g:'U',name:'Loại lớp',full:'PT hợp dạy loại lớp của gói (1-1 hoặc 1-2)',src:'ffl',ref:'FFL 3.2 mục 3'},
+  {id:'U2',g:'U',name:'Chuyên môn',full:'PT có chuyên môn khớp vấn đề của khách',src:'ffl',ref:'FFL 3.2 mục 1'},
+  {id:'U4',g:'U',name:'Ghép lớp',full:'Lớp 1-2: ghép vào lớp còn 1 chỗ trước khi mở lớp mới',src:'pm',ref:'Chốt 02/10'},
+  {id:'U5',g:'U',name:'Tỉ lệ ca',full:'PT đang có ít ca nhất so với deal được trước',src:'ffl',ref:'FFL 3.2 mục 2'},
+  {id:'U6',g:'U',name:'Dồn ca',full:'Ô sát một ca PT đã có',src:'ai',ref:'Lấy từ bản demo cũ'},
+];
+const RB=Object.fromEntries(RULES.map(r=>[r.id,r]));
+const LABEL={U1:'PT khách chọn',U1S:'Hoán đổi cho PT khách chọn',U3:'Loại lớp',U2:'Chuyên môn',U4:'Ghép lớp',U5:'Tỉ lệ ca',U6:'Dồn ca',ONE:'Chỉ 1 PT nhận được',TIE:'Hoà, lấy theo thứ tự'};
+let CFG,UORD;
+function defaultCfg(){CFG={};RULES.forEach(r=>CFG[r.id]={on:true});UORD=['U1','U3','U2','U4','U5','U6']}
+const on=id=>CFG[id].on;
+
+// done: số ca đã xếp trong tháng 10 trước tuần này
+const DEF_PTS=[
+  {id:'vy',  name:'Lê Thảo Vy',        ct:'ft',kinds:['Pilates'],      spec:['Cột sống'],fit:['1-1'],deal:80,done:6,monthMax:null,dayMax:6,runMax:3,rest:1,gapMin:4,av:'0,1,2,3,4:6-9;0,1,2,3,4:17-20'},
+  {id:'linh',name:'Nguyễn Khánh Linh', ct:'pt',kinds:['Pilates'],      spec:['Sau sinh'],fit:['1-2'],deal:50,done:5,monthMax:60,  dayMax:4,runMax:3,rest:1,gapMin:3,av:'0,2,4:6-9;1,3:17-20;5:8-11'},
+  {id:'khoa',name:'Bùi Anh Khoa',      ct:'pt',kinds:['Pilates','Gym'],spec:[],          fit:['1-2'],deal:50,done:2,monthMax:55,  dayMax:4,runMax:3,rest:1,gapMin:3,av:'0,2:6-9;1,3:17-20;5:8-11'},
+];
+// [id, tên, môn, loại lớp, số buổi, giờ rảnh, PT muốn, vấn đề (từ CRM)]
+const DEF_CL=[
+  ['ha',  'Trần Thu Hà',   'Pilates','1-1',3,'0,2,4:7-8','vy',null],
+  ['lan', 'Phạm Ngọc Lan', 'Pilates','1-1',3,'1,3:18-19',null,'Cột sống'],
+  ['truc','Vũ Minh Trúc',  'Pilates','1-2',2,'0,2:8-9',null,'Sau sinh'],
+  ['nam', 'Đặng Hải Nam',  'Pilates','1-2',2,'0:8-9;2:8;4:8-9',null,'Cột sống'],
+  ['bao', 'Hoàng Quốc Bảo','Pilates','1-2',1,'3:17-18',null,null],
+];
+const LATE_CL=['han','Lê Gia Hân','Pilates','1-1',2,'1:18;2:7','vy',null];
+let PTS,PB,CL,CB,SESS,SID,RUN;
+const mkC=r=>({id:r[0],name:r[1],short:r[1].split(' ').slice(-1)[0],kind:r[2],cls:r[3],n:r[4],av:parseAv(r[5]),pref:r[6],issue:r[7]});
+function seed(){
+  PTS=DEF_PTS.map(p=>({...p,short:p.name.split(' ').slice(-1)[0],av:parseAv(p.av)}));
+  PB=Object.fromEntries(PTS.map(p=>[p.id,p]));
+  CL=DEF_CL.map(mkC);CB=Object.fromEntries(CL.map(c=>[c.id,c]));
+  SESS=[];SID=1;RUN={cut:{},unp:[],gaps:[],order:[]};
+}
+const weekCount=p=>SESS.filter(s=>s.p===p.id).length;
+const ratio=p=>(p.done+weekCount(p))/p.deal;
+const placed=c=>SESS.filter(s=>s.bk.some(b=>b.c===c.id)).length;
+function runsOk(hs,p){
+  hs=[...hs].sort((a,b)=>a-b);const runs=[];
+  hs.forEach(h=>{const r=runs[runs.length-1];if(r&&r[1]===h)r[1]=h+1;else runs.push([h,h+1])});
+  for(let i=0;i<runs.length;i++){const len=runs[i][1]-runs[i][0];if(len>p.runMax)return false;
+    if(i>0){const pl=runs[i-1][1]-runs[i-1][0];if(pl>=p.runMax&&runs[i][0]-runs[i-1][1]<p.rest)return false}}
+  return true;
+}
+// Trả {ok,join} hoặc {no: mã rule đầu tiên chặn, blocker}
+function check(c,d,h,p,o={}){
+  if(!p.kinds.includes(c.kind))return{no:'N1'};
+  if(!c.av.has(K(d,h)))return{no:'N2'};
+  if(!p.av.has(K(d,h)))return{no:'N3'};
+  if(SESS.some(x=>x.id!==o.ignore&&x.d===d&&x.h===h&&x.bk.some(b=>b.c===c.id)))return{no:'N4'};
+  let s=SESS.find(x=>x.p===p.id&&x.d===d&&x.h===h);if(s&&s.id===o.ignore)s=null;
+  let join=null;
+  if(s){if(c.cls==='1-2'&&s.cls==='1-2'&&s.kind===c.kind&&s.bk.length<2)join=s;else return{no:'N4',blocker:s}}
+  if(on('G1')&&SESS.some(x=>x.id!==o.ignore&&x.d===d&&x.bk.some(b=>b.c===c.id)))return{no:'G1'};
+  if(!join){
+    const hs=SESS.filter(x=>x.p===p.id&&x.d===d&&x.id!==o.ignore).map(x=>x.h);
+    if(on('G2')&&hs.length+1>p.dayMax)return{no:'G2'};
+    if(on('G3')&&p.monthMax!=null&&p.done+weekCount(p)+1>p.monthMax)return{no:'G3'};
+    if(on('G4')&&!runsOk(hs.concat(h),p))return{no:'G4'};
+  }
+  return{ok:true,join};
+}
+function options(c,count){
+  let cands=[];const cut={},blk=[];let base=0;const bpts=new Set();
+  const keys=[...c.av].map(k=>k.split('|').map(Number)).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  for(const[d,h]of keys)for(const p of PTS){
+    const r=check(c,d,h,p);
+    if(r.ok){cands.push({d,h,p,join:r.join});base++;bpts.add(p.id);continue}
+    if(r.no[0]==='G'){cut[r.no]=(cut[r.no]||0)+1;base++;bpts.add(p.id)}
+    if(r.no==='N4'&&r.blocker&&check(c,d,h,p,{ignore:r.blocker.id}).ok)blk.push({d,h,p,s:r.blocker});
+  }
+  if(on('G6')&&cands.some(x=>x.p.ct!=='oc')){const f=cands.filter(x=>x.p.ct!=='oc');if(f.length<cands.length)cut.G6=cands.length-f.length;cands=f}
+  if(count)for(const k in cut)RUN.cut[k]=(RUN.cut[k]||0)+cut[k];
+  return{cands,cut,blk,base,bpts:[...bpts]};
+}
+const ptsOf=set=>[...new Set(set.map(x=>x.p.id))];
+// Giá trị càng lớn càng tốt. null = rule không áp dụng cho khách này.
+const VAL={
+  U3:c=>x=>x.p.fit.includes(c.cls)?1:0,
+  U2:c=>c.issue?x=>x.p.spec.includes(c.issue)?1:0:null,
+  U4:c=>c.cls==='1-2'?x=>x.join?1:0:null,
+  U5:c=>x=>-Math.round(ratio(x.p)*1000),
+  U6:c=>x=>SESS.some(s=>s.p===x.p.id&&s.d===x.d&&Math.abs(s.h-x.h)===1)?1:0,
+};
+const BIN={U3:1,U2:1,U4:1,U6:1};
+function narrow(c,cands){
+  const steps=[];let set=cands,decide=null;const start=ptsOf(cands);
+  for(const id of UORD){if(id==='U1'||!on(id))continue;
+    const val=VAL[id](c);if(!val){steps.push({id,na:true});continue}
+    const vs=set.map(val),best=Math.max(...vs);
+    if(BIN[id]&&best===0){steps.push({id,none:true});continue}
+    const nxt=set.filter((x,i)=>vs[i]===best),before=ptsOf(set),after=ptsOf(nxt);
+    steps.push({id,cut:set.length-nxt.length,kept:after,dropped:before.filter(p=>!after.includes(p))});
+    if(before.length>1&&after.length===1&&!decide)decide=id;
+    set=nxt;
+  }
+  set=set.slice().sort((a,b)=>a.d-b.d||a.h-b.h||PTS.indexOf(a.p)-PTS.indexOf(b.p));
+  if(!decide)decide=start.length===1?'ONE':'TIE';
+  return{win:set[0],steps,decide,left:ptsOf(set)};
+}
+function book(c,x,bk){
+  let s=x.join;
+  if(!s){s={id:SID++,p:x.p.id,d:x.d,h:x.h,kind:c.kind,cls:c.cls,bk:[]};SESS.push(s)}
+  s.bk.push({c:c.id,flags:[],...bk});return s;
+}
+// Cờ về độ khớp PT. Dùng cho cả ca mới lẫn ca bị dời.
+function fitFlags(c,p,cands,viaPref){
+  const f=[];
+  if(c.issue&&on('U2')&&!p.spec.includes(c.issue)){
+    if(viaPref)f.push({code:'T3',text:`Khách chọn PT ${p.short}, nhưng PT ${p.short} không chuyên ${c.issue}. Máy vẫn xếp theo ý khách.`});
+    else if(!cands||!cands.some(x=>x.p.spec.includes(c.issue)))f.push({code:'T3',text:`Không có PT chuyên ${c.issue} nhận được ô nào khách rảnh.`});
+  }
+  if(on('U3')&&!p.fit.includes(c.cls))f.push({code:'T4',text:`PT ${p.short} hợp dạy lớp ${p.fit.join(', ')}, không hợp lớp ${c.cls}. Không khuyến nghị.`});
+  if(p.ct==='oc')f.push({code:'T6',text:`Phải dùng PT theo ca.`});
+  return f;
+}
+// Ô khác mà khách k (đang ở ca s) và PT p cùng nhận được: gợi ý cho CS hỏi đổi ca.
+function altFor(k,s,p){
+  const c=CB[k.c],out=[];
+  for(const key of c.av){const[d,h]=key.split('|').map(Number);if(d===s.d&&h===s.h)continue;
+    const r=check(c,d,h,p,{ignore:s.id});if(r.ok&&!r.join)out.push({d,h})}
+  return out.sort((a,b)=>Math.abs(a.d-s.d)-Math.abs(b.d-s.d)||a.d-b.d||a.h-b.h);
+}
+// Dời cả ca s sang PT khác cùng giờ để nhường ô cho khách forC.
+function tryMove(s,forC){
+  const p0=PB[s.p],cs=s.bk.map(b=>CB[b.c]);
+  const qs=PTS.filter(q=>q!==p0&&cs.every(c=>{const r=check(c,s.d,s.h,q,{ignore:s.id});return r.ok&&!r.join}));
+  if(!qs.length)return null;
+  const q=narrow(cs[0],qs.map(q=>({d:s.d,h:s.h,p:q,join:null}))).win.p;
+  s.p=q.id;
+  s.bk.forEach(b=>{const c=CB[b.c];
+    b.moved={from:p0.id,to:q.id,for:forC.id};
+    b.flags=b.flags.filter(f=>!['T3','T4','T6','HD'].includes(f.code));
+    const ff=fitFlags(c,q,null,false).filter(f=>f.code!=='T3');
+    if(c.issue&&on('U2')&&p0.spec.includes(c.issue)&&!q.spec.includes(c.issue))ff.unshift({code:'T3',text:`Sau khi dời, ${c.short} không còn PT chuyên ${c.issue}.`});
+    b.flags.push({code:'HD',text:`Bị dời từ PT ${p0.short} sang PT ${q.short} để nhường ô cho ${forC.short} (khách chọn đích danh PT ${p0.short}).`,down:ff.length>0},...ff);
+  });
+  return q;
+}
+function diag(c){
+  const hints=[];
+  for(const id of['G1','G2','G3','G4','G6']){if(!on(id))continue;
+    CFG[id].on=false;const o=options(c);CFG[id].on=true;
+    if(o.cands.length){const x=narrow(c,o.cands).win;hints.push(`Nếu tắt rule "${RB[id].name}" thì có ô ${slotS(x.d,x.h)} với PT ${x.p.short}.`)}}
+  const o=options(c);
+  o.blk.slice(0,2).forEach(b=>hints.push(`Ô ${slotS(b.d,b.h)} của PT ${b.p.short} đang có ${b.s.bk.map(k=>CB[k.c].short).join(' + ')}.`));
+  if(!hints.length)hints.push('Khách và các PT đúng môn không trùng giờ rảnh nào.');
+  return hints;
+}
+function placeOne(c){
+  const pref=on('U1')&&c.pref?PB[c.pref]:null;
+  const o=options(c,true);const flags=[];let u1=null;
+  const trace=x=>({base:o.base,bpts:o.bpts,cut:o.cut,u1,...x});
+  if(pref){
+    const mine=o.cands.filter(x=>x.p===pref);
+    if(mine.length){
+      const r=narrow(c,mine);u1={kind:'hit',n:mine.length};
+      book(c,r.win,{rule:'U1',flags:fitFlags(c,pref,null,true),trace:trace({steps:r.steps,win:r.win})});return true}
+    const blks=o.blk.filter(b=>b.p===pref);
+    for(const b of blks){
+      if(b.s.bk.some(k=>CB[k.c].pref===pref.id))continue;
+      const names=b.s.bk.map(k=>CB[k.c].short).join(' + ');
+      const q=tryMove(b.s,c);
+      if(q){u1={kind:'swap',names,to:q.short};
+        book(c,{d:b.d,h:b.h,p:pref,join:null},{rule:'U1S',flags:fitFlags(c,pref,null,true),trace:trace({steps:[],win:{d:b.d,h:b.h,p:pref}})});return true}
+    }
+    const cb=blks.find(b=>b.s.bk.some(k=>CB[k.c].pref===pref.id));
+    if(cb){
+      const k=cb.s.bk.find(k=>CB[k.c].pref===pref.id),kc=CB[k.c];
+      const n=SESS.filter(s=>s.p===pref.id&&s.bk.some(x=>x.c===kc.id)).length;
+      const alt=altFor(k,cb.s,pref);
+      u1={kind:'blocked',name:kc.short};
+      flags.push({code:'T1',text:`${c.short} chọn PT ${pref.short}, nhưng ô ${slotS(cb.d,cb.h)} đã có ${kc.short}, và ${kc.short} cũng chọn đích danh PT ${pref.short}.`,
+        hint:`${kc.short} tuần này có ${n} ca với PT ${pref.short}. `+(alt.length?`CS có thể hỏi ${kc.short} chuyển ${slotS(cb.d,cb.h)} sang ${slotS(alt[0].d,alt[0].h)} (cả ${kc.short} và PT ${pref.short} đều rảnh).`:`${kc.short} không còn ô nào khác trùng với PT ${pref.short}.`)});
+    }else{
+      u1={kind:'none'};
+      flags.push({code:'T2',text:blks.length?`${c.short} chọn PT ${pref.short}, nhưng PT ${pref.short} đang bận và không dời được khách đang giữ ô.`:`${c.short} chọn PT ${pref.short}, nhưng PT ${pref.short} không nhận được ô nào ${c.short} rảnh.`});
+    }
+  }
+  if(!o.cands.length){RUN.unp.push({c:c.id,miss:c.n-placed(c),flags,hints:diag(c)});return false}
+  const r=narrow(c,o.cands);
+  flags.push(...fitFlags(c,r.win.p,o.cands,false));
+  if(r.decide==='TIE')flags.push({code:'T7',text:`PT ${r.left.map(id=>PB[id].short).join(', ')} ngang nhau, không rule nào phân được. Máy lấy theo thứ tự.`});
+  book(c,r.win,{rule:r.decide,flags,trace:trace({steps:r.steps,win:r.win})});return true;
+}
+function rounds(group){
+  const stuck=new Set();
+  for(let r=0;r<4;r++)for(const c of group)if(!stuck.has(c.id)&&placed(c)<c.n&&!placeOne(c))stuck.add(c.id);
+}
+function finalize(){
+  RUN.gaps=[];
+  for(const s of SESS){
+    s.bk.forEach(b=>b.flags=b.flags.filter(f=>f.code!=='T5'));
+    if(s.cls==='1-2'&&s.bk.length===1)s.bk[0].flags.push({code:'T5',text:`Lớp 1-2 mới có 1 khách, chưa ai ghép được.`,hint:`CS quyết: tìm khách ghép thêm, hoặc PT ${PB[s.p].short} vẫn dạy như bình thường.`});
+  }
+  if(on('G5'))for(const p of PTS)for(let d=0;d<7;d++){
+    const hs=SESS.filter(s=>s.p===p.id&&s.d===d).map(s=>s.h).sort((a,b)=>a-b);
+    for(let i=1;i<hs.length;i++){const g=hs[i]-hs[i-1]-1;if(g>2&&g<p.gapMin)RUN.gaps.push({p:p.id,d,a:hs[i-1],b:hs[i],g})}
+  }
+}
+function run(){
+  seed();
+  const flex=Object.fromEntries(CL.map(c=>[c.id,options(c).cands.length]));
+  const byFlex=(a,b)=>flex[a.id]-flex[b.id]||CL.indexOf(a)-CL.indexOf(b);
+  const A=CL.filter(c=>on('U1')&&c.pref).sort(byFlex),B=CL.filter(c=>!(on('U1')&&c.pref)).sort(byFlex);
+  RUN.order=[...A,...B].map(c=>({c:c.id,flex:flex[c.id],pref:A.includes(c)}));
+  rounds(A);rounds(B);finalize();
+}
+function addLate(){
+  const c=mkC(LATE_CL);c.late=true;CL.push(c);CB[c.id]=c;
+  rounds([c]);finalize();
+}
+const isTmp=b=>b.flags.some(f=>f.code[0]==='T'||f.down);
+/*ENGINE-END*/
+
+/* ===== Giao diện ===== */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const SRC={ffl:['FFL nói','ok'],pm:['PM chốt tạm, FFL chưa duyệt','w'],ai:['Máy đề xuất, chưa ai duyệt','w'],base:['Điều kiện nền','']};
+const state={step:1,ran:false,late:false,sel:null,hi:null,prev:null,chg:new Set(),dirty:false,anim:true};
+const keysNow=()=>new Set(SESS.flatMap(s=>s.bk.map(b=>[b.c,s.d,s.h,s.p].join('|'))));
+function doRun(){
+  const prev=state.ran?keysNow():null;
+  run();if(state.late)addLate();
+  state.chg=new Set();
+  if(prev)for(const k of keysNow())if(!prev.has(k))state.chg.add(k);
+  state.prev=prev;state.ran=true;state.dirty=false;state.sel=null;state.hi=null;
+}
+function mg(av,sess){
+  let h='<div class="mg"><span></span>'+DOWS.map(d=>`<span class="d">${d}</span>`).join('');
+  for(const hr of HOURS){h+=`<span class="h">${hr%3===0?hr+'h':''}</span>`;
+    for(let d=0;d<7;d++)h+=`<i class="${sess&&sess.has(K(d,hr))?'s':av.has(K(d,hr))?'on':''}"></i>`}
+  return h+'</div>';
+}
+function cCard(c){
+  return `<div class="card"><div class="nm">${esc(c.name)}${c.late?' <span class="chip w">Gửi trễ</span>':''}</div>
+  <div class="chips"><span class="chip">${c.kind}</span><span class="chip">Lớp ${c.cls}</span><span class="chip">${c.n} buổi</span></div>
+  <div class="kv"><span>PT muốn</span><span>${c.pref?'<b>PT '+PB[c.pref].short+'</b>':'Không chọn'}</span>
+  <span>Vấn đề</span><span>${c.issue?'<b>'+c.issue+'</b>':'Không có'}</span></div>
+  ${mg(c.av)}<div class="cap">Rảnh ${c.av.size} ô giờ</div></div>`;
+}
+function pCard(p){
+  return `<div class="card"><div class="nm">PT ${esc(p.name)}</div>
+  <div class="chips"><span class="chip">${CT[p.ct]}</span>${p.kinds.map(k=>`<span class="chip">${k}</span>`).join('')}</div>
+  <div class="kv"><span>Chuyên môn</span><span>${p.spec.length?'<b>'+p.spec.join(', ')+'</b>':'Chưa khai'}</span>
+  <span>Hợp lớp</span><span><b>${p.fit.join(', ')}</b></span>
+  <span>Deal</span><span>${p.deal} ca/tháng, đã xếp ${p.done}</span>
+  <span>Giới hạn</span><span>${p.dayMax} ca/ngày · ${p.runMax} ca liền · ca gãy từ ${p.gapMin}h</span></div>
+  ${mg(p.av)}<div class="cap">Rảnh ${p.av.size} ô giờ</div></div>`;
+}
+function step1(){
+  const need=CL.reduce((a,c)=>a+c.n,0);
+  return `<div class="cols2">
+  <section><h2>Khách gửi phiếu <span class="chip">${CL.length}</span></h2><p class="sub">Cần xếp ${need} buổi. Môn và loại lớp lấy từ gói tập, khách không chọn lại mỗi tuần. Vấn đề sức khoẻ lấy từ CRM theo mã khách (demo dùng dữ liệu giả).</p><div class="cards">${CL.map(cCard).join('')}</div></section>
+  <section><h2>PT nộp lịch rảnh <span class="chip">${PTS.length}</span></h2><p class="sub">Chuyên môn, loại lớp hợp, deal và giới hạn do studio khai trong hồ sơ PT. Giờ rảnh do PT nộp mỗi tuần.</p><div class="cards">${PTS.map(pCard).join('')}</div></section>
+  </div>
+  <div class="lg"><span><i style="background:var(--free);border:0"></i>ô rảnh</span><span><i style="background:var(--line);border:0"></i>không rảnh</span><span>Mỗi lưới: cột là T2 đến CN, hàng là giờ bắt đầu ca từ 6h đến 20h.</span></div>
+  <div class="acts"><button class="b pri r" data-go="2">Tiếp: chọn rule →</button></div>`;
+}
+function param(id){
+  const each=f=>PTS.map(p=>`${p.short} ${f(p)}`).join(' · ');
+  return({G2:each(p=>p.dayMax),G3:each(p=>p.monthMax==null?'không trần':p.monthMax),G4:each(p=>p.runMax+' ca')+' · nghỉ 1 ca',G5:each(p=>p.gapMin+'h'),G6:'Tuần này không có PT theo ca',
+    U5:each(p=>p.done+'/'+p.deal)+' (đã xếp/deal)',G1:'',U1:'',U2:'',U3:'',U4:'',U6:''})[id]||'';
+}
+function rrow(r,i){
+  const [st,sc]=SRC[r.src],o=on(r.id),u=r.g==='U';
+  return `<div class="rr${u?' u':''}${o?'':' off'}">
+   <button class="sw" role="switch" aria-checked="${o}" aria-label="Bật tắt ${r.name}" ${r.g==='N'?'disabled':''} data-tg="${r.id}"></button>
+   ${u?`<div class="mv"><button data-up="${r.id}" aria-label="Đưa lên" ${i<=1?'disabled':''}>↑</button><button data-dn="${r.id}" aria-label="Đưa xuống" ${i===0||i===UORD.length-1?'disabled':''}>↓</button></div>`:''}
+   <div class="tx"><b>${u?(i+1)+'. ':''}${r.name}<code>${r.id}</code></b><span>${r.full}</span></div>
+   <div class="pm">${param(r.id)}</div>
+   <div class="sr"><span class="chip ${sc}" title="${esc(r.ref)}">${st}</span></div></div>`;
+}
+function step2(){
+  const grp=g=>RULES.filter(r=>r.g===g);
+  return `<p class="sub" style="max-width:820px">Bộ rule áp dụng cho lần xếp tuần 5/10 – 11/10. Bật, tắt hoặc đổi thứ tự rồi bấm xếp. Máy lưu bộ rule này kèm lịch, để sau này mở lại vẫn biết tuần đó xếp theo rule nào.</p>
+  <div class="rg"><div class="hd">Rule nền <small>luôn bật, tắt thì lịch vô nghĩa</small></div>${grp('N').map(rrow).join('')}</div>
+  <div class="rg"><div class="hd">Rule giới hạn <small>ô nào phạm thì bỏ · tham số riêng từng PT</small></div>${grp('G').map(rrow).join('')}</div>
+  <div class="rg"><div class="hd">Rule ưu tiên <small>xét từ trên xuống, rule trên hoà mới xét rule dưới · thứ tự là PM chốt tạm 02/10, FFL chưa duyệt</small></div>${UORD.map((id,i)=>rrow(RB[id],i)).join('')}</div>
+  ${on('U5')?'':'<div class="note w">Đang tắt "Tỉ lệ ca". Tắt nhiều tuần thì số ca cả tháng sẽ lệch deal với PT.</div>'}
+  <div class="note">Rule "Ca gãy" chỉ được kiểm sau khi xếp xong cả tuần, vì khoảng trống giữa hai ca có thể được lấp bằng ca xếp sau.</div>
+  <div class="acts"><button class="b" data-go="1">← Đầu vào</button><button class="b" data-reset>Về bộ rule mặc định</button><button class="b pri r" data-go="3">${state.ran?'Xếp lại':'Xếp ca'} →</button></div>`;
+}
+const allBk=()=>SESS.flatMap(s=>s.bk.map(b=>({s,b})));
+function sessChip(s){
+  const tmp=s.bk.some(isTmp),chg=s.bk.some(b=>state.chg.has([b.c,s.d,s.h,s.p].join('|')));
+  const hi=state.hi,dim=hi&&!(hi.t==='c'?s.bk.some(b=>b.c===hi.id):s.p===hi.id);
+  return `<button class="ss${tmp?' tmp':''}${chg?' chg':''}${dim?' dim':''}${state.sel===s.id?' sel':''}" data-s="${s.id}">
+   <span class="pt"><span>PT ${PB[s.p].short}</span><span>${s.cls}</span></span>
+   ${s.bk.map(b=>`<span class="bk">${esc(CB[b.c].short)}<em class="${isTmp(b)?'t':''}">${isTmp(b)?'Gán tạm · ':''}${LABEL[b.rule]}</em></span>`).join('')}</button>`;
+}
+function calendar(){
+  const used=h=>SESS.some(s=>s.h===h);
+  let h='<div class="cal"><div class="cg"><span class="dh"></span>'+DOWS.map((d,i)=>`<span class="dh">${d} ${dm(i)}</span>`).join('');
+  let skip=[];
+  const flush=()=>{if(skip.length){h+=`<div class="brk">${skip[0]}h – ${skip[skip.length-1]+1}h: không có ca</div>`;skip=[]}};
+  for(const hr of HOURS){
+    if(!used(hr)){skip.push(hr);continue}
+    flush();
+    h+=`<span class="hh">${hr}h</span>`;
+    for(let d=0;d<7;d++)h+=`<div class="ce">${SESS.filter(s=>s.d===d&&s.h===hr).sort((a,b)=>PTS.indexOf(PB[a.p])-PTS.indexOf(PB[b.p])).map(sessChip).join('')}</div>`;
+  }
+  flush();
+  return h+'</div></div>';
+}
+function stepText(st){
+  const r=RB[st.id],nm=ids=>ids.map(id=>'PT '+PB[id].short).join(', ');
+  if(st.na)return`<li class="na">${r.name}: không áp dụng cho khách này.</li>`;
+  if(st.none)return`<li class="na">${r.name}: không lựa chọn nào khớp, bỏ qua.</li>`;
+  if(!st.cut)return`<li class="na">${r.name}: các lựa chọn ngang nhau.</li>`;
+  return`<li><b>${r.name}</b>: giữ ${nm(st.kept)}${st.dropped.length?', bỏ '+nm(st.dropped):''} (bỏ ${st.cut} lựa chọn).</li>`;
+}
+function traceHTML(b){
+  const t=b.trace,c=CB[b.c],li=[];
+  li.push(`<li>Rule nền: ${t.base} lựa chọn (ô × PT), gồm ${t.bpts.map(id=>'PT '+PB[id].short).join(', ')||'không PT nào'}.</li>`);
+  for(const id in t.cut)li.push(`<li><b>${RB[id].name}</b>: bỏ ${t.cut[id]} lựa chọn.</li>`);
+  const p=c.pref?PB[c.pref].short:'';
+  if(t.u1){
+    if(t.u1.kind==='hit')li.push(`<li><b>PT khách chọn</b>: PT ${p} nhận được ${t.u1.n} ô khách rảnh. Chỉ xét PT ${p}.</li>`);
+    if(t.u1.kind==='swap')li.push(`<li><b>PT khách chọn</b>: ô này PT ${p} đang có ca của ${t.u1.names}. ${t.u1.names} không chọn đích danh PT ${p}, nên máy dời sang PT ${t.u1.to} cùng giờ.</li>`);
+    if(t.u1.kind==='blocked')li.push(`<li><b>PT khách chọn</b>: PT ${p} đang có ca của ${t.u1.name}, và ${t.u1.name} cũng chọn đích danh PT ${p}. Máy không tự quyết, chuyển sang xét PT khác.</li>`);
+    if(t.u1.kind==='none')li.push(`<li><b>PT khách chọn</b>: PT ${p} không nhận được ô nào khách rảnh. Chuyển sang xét PT khác.</li>`);
+  }
+  t.steps.forEach(st=>li.push(stepText(st)));
+  li.push(`<li>Ô được chọn: ${slotT(t.win.d,t.win.h)}, PT ${t.win.p.short}${t.steps.length?' (ô sớm nhất trong các lựa chọn còn lại)':''}.</li>`);
+  return `<ol class="tr">${li.join('')}</ol>`;
+}
+function detail(){
+  const s=SESS.find(x=>x.id===state.sel);if(!s)return'';
+  return `<div class="box dt fade"><button class="x" data-close>Đóng</button>
+   <h3>${slotT(s.d,s.h)}</h3><div class="muted" style="font-size:13px;margin-bottom:8px">PT ${PB[s.p].name} · ${s.kind} lớp ${s.cls}${s.cls==='1-2'?` · ${s.bk.length}/2 chỗ`:''}</div>
+   ${s.bk.map(b=>`<div style="margin-top:10px"><b>${esc(CB[b.c].name)}</b> <span class="chip ${isTmp(b)?'w':'ok'}">${isTmp(b)?'Gán tạm':'Xếp theo rule'}: ${LABEL[b.rule]}</span>
+    ${b.flags.map(f=>`<div class="fl">${esc(f.text)}${f.hint?`<small>${esc(f.hint)}</small>`:''}</div>`).join('')}
+    <div class="muted" style="font-size:12.5px;margin-top:8px">Máy đã xét thế nào</div>${traceHTML(b)}</div>`).join('')}</div>`;
+}
+function todos(){
+  const items=[];
+  allBk().filter(x=>isTmp(x.b)).forEach(({s,b})=>items.push(`<button class="todo" data-s="${s.id}"><b>${esc(CB[b.c].short)} · ${slotS(s.d,s.h)} · PT ${PB[s.p].short}</b>${b.flags.filter(f=>f.code[0]==='T'||f.down).map(f=>`<span>${esc(f.text)}</span>${f.hint?`<span class="hint">${esc(f.hint)}</span>`:''}`).join('')}</button>`));
+  RUN.unp.forEach(u=>items.push(`<button class="todo un" data-hc="${u.c}"><b>${esc(CB[u.c].short)} · thiếu ${u.miss} buổi</b>${u.flags.map(f=>`<span>${esc(f.text)}</span>`).join('')}${u.hints.map(h=>`<span class="hint">${esc(h)}</span>`).join('')}</button>`));
+  RUN.gaps.forEach(g=>items.push(`<button class="todo" data-hp="${g.p}"><b>PT ${PB[g.p].short} · ${DOWS[g.d]}</b><span>Trống ${g.g} tiếng giữa ca ${g.a}h và ca ${g.b}h: quá dài để ngồi chờ, chưa đủ ${PB[g.p].gapMin} tiếng để về nghỉ.</span></button>`));
+  return `<div class="box"><h3>Chờ CS chốt <span class="chip ${items.length?'w':''}">${items.length}</span></h3>${items.join('')||'<div class="muted" style="font-size:13.5px">Không có ca nào cần CS chốt.</div>'}</div>`;
+}
+const GAPQ={T1:['Hai khách cùng chọn một PT, cùng một ô','Ai được ưu tiên? Theo thâm niên, theo gói, hay ai gửi trước?'],
+  T2:['PT khách chọn không rảnh giờ khách xin','Xếp PT khác luôn, hay hỏi khách đổi giờ trước?'],
+  T3:['Khách có vấn đề sức khoẻ nhưng PT không đúng chuyên môn','Khi nào chấp nhận PT không chuyên? Có cần báo khách không?'],
+  T4:['Phải dùng PT không hợp loại lớp','PT chuyên 1-1 dạy 1-2 (hoặc ngược lại) được trong trường hợp nào?'],
+  T5:['Lớp 1-2 chỉ có 1 khách','PT vẫn dạy, hay dời khách sang giờ khác để ghép?'],
+  T6:['Phải dùng PT theo ca','Có cần duyệt trước khi gọi PT theo ca không?'],
+  T7:['Nhiều PT ngang nhau, không rule nào phân được','Chọn theo tiêu chí gì?'],
+  T9:['Khách không xếp đủ số buổi','Khách có được tập 2 buổi trong 1 ngày không? Có gọi khách xin thêm giờ rảnh không?'],
+  HD:['Hoán đổi làm khách bị dời mất PT phù hợp','Có hoán đổi không, khi khách bị dời sẽ mất PT đúng chuyên môn hoặc đúng loại lớp?']};
+function below(){
+  const bks=allBk(),cnt={};
+  bks.forEach(({b})=>b.flags.forEach(f=>{const k=f.code==='HD'?(f.down?'HD':null):f.code;if(k)cnt[k]=(cnt[k]||0)+1}));
+  if(RUN.unp.length)cnt.T9=RUN.unp.length;
+  RUN.unp.forEach(u=>u.flags.forEach(f=>cnt[f.code]=(cnt[f.code]||0)+1));
+  const dec={};bks.forEach(({b})=>dec[b.rule]=(dec[b.rule]||0)+1);
+  const gaps=Object.keys(cnt);
+  return `<div class="below">
+  <div><h3>Rule nào đã quyết định</h3><div class="tw"><table><tr><th>Rule</th><th class="n">Số buổi</th></tr>
+   ${Object.keys(LABEL).filter(k=>dec[k]).map(k=>`<tr><td>${LABEL[k]}</td><td class="n">${dec[k]}</td></tr>`).join('')}</table></div>
+   <div class="tw" style="margin-top:10px"><table><tr><th>Rule giới hạn</th><th class="n">Lựa chọn đã chặn</th></tr>
+   ${RULES.filter(r=>r.g==='G').map(r=>`<tr><td>${r.name}${on(r.id)?'':' <span class="faint">(đang tắt)</span>'}</td><td class="n">${r.id==='G5'?(on('G5')?RUN.gaps.length+' chỗ phạm':'—'):on(r.id)?(RUN.cut[r.id]||0):'—'}</td></tr>`).join('')}</table></div>
+   <p class="cap">"Lựa chọn đã chặn" là số cặp (ô, PT) bị rule loại trong lúc xếp. Số 0 nghĩa là tuần này rule đó không ảnh hưởng tới lịch.</p></div>
+  <div><h3>Tỉ lệ ca theo PT</h3><div class="tw"><table><tr><th>PT</th><th class="n">Deal</th><th class="n">Đã xếp trước</th><th class="n">Tuần này</th><th class="n">So với deal</th></tr>
+   ${PTS.map(p=>`<tr><td>${p.short}</td><td class="n">${p.deal}</td><td class="n">${p.done}</td><td class="n">${weekCount(p)}</td><td class="n">${Math.round(ratio(p)*100)}%</td></tr>`).join('')}</table></div>
+   <p class="cap">Tính trên ca đã xếp. Một lớp 1-2 tính là 1 ca. "Đã xếp trước" là số ca trong tháng 10 trước tuần này (dữ liệu giả).</p></div>
+  <div><h3>Chỗ máy chưa có rule, FFL cần bổ sung</h3>${gaps.length?`<div class="tw"><table><tr><th>Tình huống</th><th class="n">Tuần này</th><th>Câu cần FFL trả lời</th></tr>
+   ${gaps.map(k=>`<tr><td>${GAPQ[k][0]}</td><td class="n">${cnt[k]}</td><td>${GAPQ[k][1]}</td></tr>`).join('')}</table></div>`:'<div class="muted" style="font-size:13.5px">Tuần này không có tình huống nào thiếu rule.</div>'}</div>
+  <div><h3>Bộ rule đã dùng lần xếp này</h3><div class="used">${RULES.filter(r=>r.g==='G').map(r=>`<span class="chip${on(r.id)?'':' off'}">${r.name}</span>`).join('')}</div>
+   <div class="muted" style="font-size:12.5px;margin:10px 0 4px">Thứ tự ưu tiên</div><div class="used">${UORD.map((id,i)=>`<span class="chip${on(id)?'':' off'}">${i+1}. ${RB[id].name}</span>`).join('')}</div></div>
+  </div>`;
+}
+function step3(){
+  const bks=allBk(),need=CL.reduce((a,c)=>a+c.n,0),tmp=bks.filter(x=>isTmp(x.b)).length,miss=need-bks.length;
+  const hi=state.hi,selS=SESS.find(x=>x.id===state.sel);
+  const cSel=c=>(hi&&hi.t==='c'&&hi.id===c.id)||(selS&&selS.bk.some(b=>b.c===c.id));
+  const pSel=p=>(hi&&hi.t==='p'&&hi.id===p.id)||(selS&&selS.p===p.id);
+  return `${state.chg.size?`<div class="banner">So với lần xếp trước có <b>${state.chg.size} buổi</b> mới hoặc đổi chỗ. Các ca đó có viền đậm trên lịch.</div>`:''}
+  <div class="kpi"><div><b>${need}</b>buổi cần xếp</div><div><b>${bks.length-tmp}</b>xếp theo rule</div><div class="w"><b>${tmp}</b>gán tạm, chờ CS chốt</div><div class="bd"><b>${miss}</b>chưa xếp được</div><div><b>${bks.length?Math.round(tmp/bks.length*100):0}%</b>buổi đã xếp là gán tạm</div></div>
+  <div class="l3">
+   <div class="rail"><h3>Khách</h3>${CL.map(c=>`<button class="it${cSel(c)?' sel':''}" data-hc="${c.id}"><b>${esc(c.short)}${c.late?' <span class="chip w">Trễ</span>':''}</b><span>${placed(c)}/${c.n} buổi · lớp ${c.cls}${c.pref?' · chọn PT '+PB[c.pref].short:''}${c.issue?' · '+c.issue:''}</span></button>`).join('')}
+    <h3 style="margin-top:14px">PT</h3>${PTS.map(p=>`<button class="it${pSel(p)?' sel':''}" data-hp="${p.id}"><b>PT ${p.short}</b><span>${weekCount(p)} ca tuần này · hợp ${p.fit.join(', ')}${p.spec.length?' · '+p.spec.join(', '):''}</span></button>`).join('')}
+    <p class="cap">Bấm một người để chỉ xem ca của người đó. Bấm lần nữa để bỏ lọc.</p></div>
+   <div>${calendar()}
+    <div class="lg"><span><i></i>xếp theo rule</span><span><i class="t"></i>gán tạm, chờ CS chốt</span>${state.chg.size?'<span><i class="c"></i>mới đổi so với lần trước</span>':''}<span>Dòng chữ nhỏ dưới tên khách là rule đã quyết định. Bấm một ca để xem máy đã xét thế nào.</span></div></div>
+   <div class="side">${detail()}${todos()}</div>
+  </div>
+  ${below()}
+  <div class="acts"><button class="b" data-go="2">← Đổi rule rồi xếp lại</button>
+   <button class="b" data-late ${state.late?'disabled':''}>${state.late?'Đã thêm khách gửi trễ':'Có khách gửi trễ (Gia Hân, chọn PT Vy): xếp bổ sung'}</button></div>`;
+}
+function render(){
+  $('#steps').innerHTML=[['1','Đầu vào'],['2','Rule'],['3','Kết quả']].map(([n,t],i)=>`${i?'<span class="sp">›</span>':''}<button role="tab" aria-selected="${state.step==n}" data-go="${n}"><span class="no">${n}</span>${t}</button>`).join('');
+  const app=$('#app');
+  app.innerHTML=state.step===1?step1():state.step===2?step2():step3();
+  app.classList.toggle('fade',state.anim);state.anim=false;
+}
+function go(n){
+  n=+n;
+  if(n===3&&(!state.ran||state.dirty))doRun();
+  if(n!==state.step){state.step=n;state.anim=true;window.scrollTo(0,0)}
+  render();
+}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-go],[data-tg],[data-up],[data-dn],[data-reset],[data-s],[data-hc],[data-hp],[data-close],[data-late]');
+  if(!t||t.disabled)return;const d=t.dataset;
+  if(d.go)return go(d.go);
+  if(d.tg){CFG[d.tg].on=!CFG[d.tg].on;state.dirty=true}
+  else if(d.up||d.dn){const id=d.up||d.dn,i=UORD.indexOf(id),j=i+(d.up?-1:1);if(j>=1&&j<UORD.length){[UORD[i],UORD[j]]=[UORD[j],UORD[i]];state.dirty=true}}
+  else if('reset' in d){defaultCfg();state.dirty=true}
+  else if(d.s){const id=+d.s;state.sel=state.sel===id?null:id}
+  else if(d.hc){state.hi=state.hi&&state.hi.id===d.hc?null:{t:'c',id:d.hc};state.sel=null}
+  else if(d.hp){state.hi=state.hi&&state.hi.id===d.hp?null:{t:'p',id:d.hp};state.sel=null}
+  else if('close' in d)state.sel=null;
+  else if('late' in d){state.late=true;const prev=keysNow();addLate();state.chg=new Set([...keysNow()].filter(k=>!prev.has(k)));state.sel=null;state.hi=null}
+  render();
+});
+defaultCfg();seed();render();
+</script>
+</body>
+</html>
