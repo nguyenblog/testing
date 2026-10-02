@@ -198,6 +198,20 @@ So 3 bản: **Máy xếp**, **CS chốt** (đầu tuần), **Thực tế** (sau 
 
 Test tự động: `node fit-for-life/tests/run.js` (18 kiểm tra: đọc khung giờ, chồng giờ, môn theo khung, buổi liền, nghỉ sau chuỗi, ca gãy, giờ trực, số HLV có mặt, kịch bản mẫu, đọc thread).
 
+## Hai file demo (cập nhật 02/10)
+
+- **`xep-ca.html` — bản demo cho FFL.** Giữ giao diện bản trước (chuyển vai CS / HLV / Khách / Chạy thử, lịch theo HLV, form trên điện thoại, chốt và gửi, HLV báo nghỉ, danh sách cần báo) nhưng chạy máy v2:
+  - lưới 30 phút 6–21h, khung trực HLV có môn, giới hạn giờ dạy, buổi liền, ca gãy, cảnh báo giờ trực;
+  - lớp 1-1, 1-2, **1-4** với ghế trống, khách có thể lấp ghế, cảnh báo lớp 1-4 dưới sĩ số tối thiểu 2;
+  - nhãn rule và "máy đã xét thế nào" trên từng buổi, danh sách gán tạm chờ CS chốt;
+  - báo huỷ theo rule tính buổi (≥ 3h không tính, < 2h tính, 2–3h CS chọn và được ghi lại, ngoại lệ huỷ lần đầu gói mới);
+  - form khách và form HLV theo mục "Ai điền gì"; tab Bộ rule, Chỉ số, Đọc thread CS, Hệ thống chạy.
+  - Dữ liệu mẫu theo khuôn lịch thật của FFL (5 HLV, 21 khách, tên giả).
+- **`xep-ca-v2.html` — bản giải thích máy cho PM**, có thêm chế độ tự nhập dữ liệu DN để shadow.
+- Lõi máy xếp dùng chung giữa hai file (đoạn "Máy xếp ca" trong `xep-ca.html` lấy từ v2, thêm lớp 1-4 và HLV nghỉ ngày). Sửa luật thì sửa ở cả hai.
+
+Test: `node fit-for-life/tests/run.js` (luật) và `node fit-for-life/tests/demo.js` (luồng demo, kiểm bất biến sau mỗi bước).
+
 ## Rủi ro kỹ thuật
 
 - **Bật/tắt rule tự do sinh ra nhiều tổ hợp.** Cần test từng rule riêng và vài tổ hợp hay dùng. Tắt U5 vài tuần thì tỉ lệ ca cả tháng sẽ lệch, máy phải cảnh báo điều này khi tắt.
