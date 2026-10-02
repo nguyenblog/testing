@@ -149,6 +149,41 @@ Nguyên tắc: gặp edge case thì máy vẫn đưa ra phương án tốt nhấ
 5. Rà cuối: lớp 1-2 chưa đủ người (T5), luật khoảng trống (T8), tỉ lệ ca.
 6. Xuất lịch nháp, danh sách chờ CS chốt, các bảng báo cáo.
 
+## Chốt lịch và đổi trong tuần (user chốt 02/10, demo bước 4)
+
+**Nguyên tắc:** lịch đã chốt thì máy không xếp lại cả tuần. Đổi buổi nào thì chỉ tìm chỗ cho buổi đó, các ca khác bị khoá.
+
+1. **Trước khi chốt:** CS xử lý danh sách gán tạm: giữ phương án máy, hoặc đổi. Bấm "Chốt lịch" để lưu bản v1 và gửi khách, PT.
+2. **Trong tuần:** CS bấm "Đổi lịch" trên một buổi. Nhập giờ rảnh mới nếu khách báo, không thì dùng giờ rảnh khai đầu tuần.
+3. Máy đưa phương án xếp hạng theo **bộ rule đã lưu của tuần đó**. Chỉ xét ô trống hoặc lớp 1-2 còn chỗ.
+   - Khách xin đổi giờ: ưu tiên giữ PT cũ.
+   - CS tự đổi: không ưu tiên giữ PT.
+   - Mỗi phương án có nhãn: giữ PT, đúng chuyên môn, không hợp lớp, ghép với ai...
+4. Không có ô thì CS hỏi khách khác đổi (máy không tự dời khách đã nhận lịch), hoặc huỷ buổi và ghi **buổi nợ**.
+5. Mỗi lần đổi bắt buộc chọn **lý do** (khách yêu cầu / PT xin đổi / CS thấy hợp hơn / khác), tăng số bản (v2, v3...) và ghi lịch sử.
+6. Đổi làm lớp 1-2 còn 1 khách thì khách còn lại quay về danh sách chờ CS (T5).
+
+### Bảng chỉ số theo tiêu chí
+
+So 3 bản: **Máy xếp**, **CS chốt** (đầu tuần), **Thực tế** (sau các lần đổi). Có 2 cột lệch: máy → chốt, chốt → thực tế.
+
+| Tiêu chí | Cách tính |
+|---|---|
+| Xếp đủ số buổi | buổi đã xếp ÷ buổi khách đăng ký |
+| Đúng PT khách chọn | chỉ tính buổi của khách có chọn PT |
+| PT hợp loại lớp | mọi buổi |
+| Đúng chuyên môn | chỉ tính buổi của khách có vấn đề sức khoẻ |
+| Lớp 1-2 đủ 2 khách | tính trên số lớp 1-2 |
+| Chênh tỉ lệ ca giữa các PT | (ca đã xếp ÷ deal) của PT cao nhất trừ PT thấp nhất, càng thấp càng tốt |
+| Lần phạm rule giới hạn | đếm lại G1, G2, G4, G5 trên lịch, chỉ rule đang bật |
+| Giữ nguyên lịch | buổi còn đúng ô và PT so với bản trước (độ ổn định) |
+
+- Mẫu số chỉ gồm buổi mà tiêu chí áp dụng, để % không đẹp giả.
+- Lệch tính bằng điểm phần trăm.
+- % thấp chưa chắc là xếp tệ: cột "Máy xếp" là mức tốt nhất với nhân sự tuần đó. Cái cần nhìn là cột lệch.
+- Bấm vào một tiêu chí sẽ ra các thay đổi đã làm lệch nó, kèm lý do.
+- Bảng "lệch theo lý do" gom theo tuần là dữ liệu cho bảng "rule đang thiếu".
+
 ## Rủi ro kỹ thuật
 
 - **Bật/tắt rule tự do sinh ra nhiều tổ hợp.** Cần test từng rule riêng và vài tổ hợp hay dùng. Tắt U5 vài tuần thì tỉ lệ ca cả tháng sẽ lệch, máy phải cảnh báo điều này khi tắt.

@@ -144,6 +144,8 @@ ol.tr li.na{color:var(--faint)}
 .fl{font-size:13px;border-left:3px solid var(--warn);background:var(--warn-soft);padding:6px 10px;border-radius:0 8px 8px 0;margin:6px 0}
 .fl small{display:block;color:var(--muted);margin-top:2px}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
+table.mt tr[data-met]:hover td,table.mt tr.sel td{background:var(--soft)}
+.todo:disabled{cursor:default}
 th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
 th{font-size:12px;color:var(--muted);font-weight:600}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -200,7 +202,7 @@ const RULES=[
   {id:'U6',g:'U',name:'Dồn ca',full:'Ô sát một ca PT đã có',src:'ai',ref:'Lấy từ bản demo cũ'},
 ];
 const RB=Object.fromEntries(RULES.map(r=>[r.id,r]));
-const LABEL={U1:'PT khách chọn',U1S:'Hoán đổi cho PT khách chọn',U3:'Loại lớp',U2:'Chuyên môn',U4:'Ghép lớp',U5:'Tỉ lệ ca',U6:'Dồn ca',ONE:'Chỉ 1 PT nhận được',TIE:'Hoà, lấy theo thứ tự'};
+const LABEL={U1:'PT khách chọn',U1S:'Hoán đổi cho PT khách chọn',U3:'Loại lớp',U2:'Chuyên môn',U4:'Ghép lớp',U5:'Tỉ lệ ca',U6:'Dồn ca',ONE:'Chỉ 1 PT nhận được',TIE:'Hoà, lấy theo thứ tự',CS:'CS đổi'};
 let CFG,UORD;
 function defaultCfg(){CFG={};RULES.forEach(r=>CFG[r.id]={on:true});UORD=['U1','U3','U2','U4','U5','U6']}
 const on=id=>CFG[id].on;
@@ -241,7 +243,7 @@ function runsOk(hs,p){
 // Trả {ok,join} hoặc {no: mã rule đầu tiên chặn, blocker}
 function check(c,d,h,p,o={}){
   if(!p.kinds.includes(c.kind))return{no:'N1'};
-  if(!c.av.has(K(d,h)))return{no:'N2'};
+  if(!(o.av||c.av).has(K(d,h)))return{no:'N2'};
   if(!p.av.has(K(d,h)))return{no:'N3'};
   if(SESS.some(x=>x.id!==o.ignore&&x.d===d&&x.h===h&&x.bk.some(b=>b.c===c.id)))return{no:'N4'};
   let s=SESS.find(x=>x.p===p.id&&x.d===d&&x.h===h);if(s&&s.id===o.ignore)s=null;
@@ -393,7 +395,10 @@ function rounds(group){
 function finalize(){
   RUN.gaps=[];
   for(const s of SESS){
+    const had=new Set(s.bk.filter(b=>b.flags.some(f=>f.code==='T5')).map(b=>b.c));
     s.bk.forEach(b=>b.flags=b.flags.filter(f=>f.code!=='T5'));
+    // Lớp vừa mất bạn ghép (do đổi lịch) thì phải về lại danh sách chờ CS.
+    if(s.cls==='1-2'&&s.bk.length===1&&!had.has(s.bk[0].c))s.bk[0].ok=false;
     if(s.cls==='1-2'&&s.bk.length===1)s.bk[0].flags.push({code:'T5',text:`Lớp 1-2 mới có 1 khách, chưa ai ghép được.`,hint:`CS quyết: tìm khách ghép thêm, hoặc PT ${PB[s.p].short} vẫn dạy như bình thường.`});
   }
   if(on('G5'))for(const p of PTS)for(let d=0;d<7;d++){
@@ -413,14 +418,87 @@ function addLate(){
   const c=mkC(LATE_CL);c.late=true;CL.push(c);CB[c.id]=c;
   rounds([c]);finalize();
 }
-const isTmp=b=>b.flags.some(f=>f.code[0]==='T'||f.down);
+
+/* ===== Bước 4: chốt lịch và đổi trong tuần ===== */
+// may: bản máy xếp · chot: bản CS chốt gửi khách và PT · log: mọi thay đổi sau bản máy
+let WK;
+function resetWeek(){WK={may:null,chot:null,locked:false,ver:0,log:[],debt:[]}}
+const snap=()=>SESS.map(s=>({p:s.p,d:s.d,h:s.h,cls:s.cls,bk:s.bk.map(b=>b.c)}));
+function viol(S){
+  let n=0;
+  if(on('G1')){const cd={};S.forEach(s=>s.bk.forEach(c=>{const k=c+'|'+s.d;cd[k]=(cd[k]||0)+1}));for(const k in cd)if(cd[k]>1)n+=cd[k]-1}
+  for(const p of PTS)for(let d=0;d<7;d++){
+    const hs=S.filter(s=>s.p===p.id&&s.d===d).map(s=>s.h).sort((a,b)=>a-b);if(!hs.length)continue;
+    if(on('G2')&&hs.length>p.dayMax)n++;
+    if(on('G4')&&!runsOk(hs,p))n++;
+    if(on('G5'))for(let i=1;i<hs.length;i++){const g=hs[i]-hs[i-1]-1;if(g>2&&g<p.gapMin)n++}
+  }
+  return n;
+}
+function frac(S,who,ok){let a=0,t=0;S.forEach(s=>s.bk.forEach(id=>{const c=CB[id];if(!who(c))return;t++;if(ok(c,s))a++}));return[a,t]}
+// up: càng cao càng tốt. Mẫu số chỉ gồm buổi mà tiêu chí áp dụng.
+const MET=[
+  {id:'du',name:'Xếp đủ số buổi',up:true,f:S=>[S.reduce((a,s)=>a+s.bk.length,0),CL.reduce((a,c)=>a+c.n,0)]},
+  {id:'u1',name:'Đúng PT khách chọn',sub:'buổi của khách có chọn PT',up:true,f:S=>frac(S,c=>c.pref,(c,s)=>s.p===c.pref)},
+  {id:'u3',name:'PT hợp loại lớp',up:true,f:S=>frac(S,()=>true,(c,s)=>PB[s.p].fit.includes(s.cls))},
+  {id:'u2',name:'Đúng chuyên môn',sub:'buổi của khách có vấn đề sức khoẻ',up:true,f:S=>frac(S,c=>c.issue,(c,s)=>PB[s.p].spec.includes(c.issue))},
+  {id:'u4',name:'Lớp 1-2 đủ 2 khách',sub:'tính trên số lớp',up:true,f:S=>{const l=S.filter(s=>s.cls==='1-2');return[l.filter(s=>s.bk.length===2).length,l.length]}},
+  {id:'u5',name:'Chênh tỉ lệ ca giữa các PT',sub:'PT cao nhất trừ PT thấp nhất, so với deal',up:false,f:S=>{const r=PTS.map(p=>(p.done+S.filter(s=>s.p===p.id).length)/p.deal);return[Math.round((Math.max(...r)-Math.min(...r))*100)]}},
+  {id:'g',name:'Lần phạm rule giới hạn',sub:'chỉ tính rule đang bật',up:false,cnt:true,f:S=>[viol(S)]},
+];
+const mval=v=>v.length===2?(v[1]?Math.round(v[0]/v[1]*100):null):v[0];
+const bkeys=S=>new Set(S.flatMap(s=>s.bk.map(c=>[c,s.d,s.h,s.p].join('|'))));
+function keep(A,B){const a=bkeys(A),b=bkeys(B);let n=0;a.forEach(k=>b.has(k)&&n++);return[n,a.size]}
+function optTags(c,x,p0){
+  const t=[];
+  if(x.p.id===p0)t.push(['Giữ PT','ok']);
+  if(c.pref)t.push(x.p.id===c.pref?['PT khách chọn','ok']:['Không phải PT khách chọn','w']);
+  if(c.issue)t.push(x.p.spec.includes(c.issue)?['Đúng chuyên môn','ok']:['Không chuyên '+c.issue,'w']);
+  if(!x.p.fit.includes(c.cls))t.push(['Không hợp lớp '+c.cls,'w']);
+  if(x.join)t.push(['Ghép với '+x.join.bk.map(b=>CB[b.c].short).join(', '),'ok']);
+  if(x.p.ct==='oc')t.push(['PT theo ca','w']);
+  return t;
+}
+// Tìm chỗ mới cho 1 buổi. Các ca khác giữ nguyên, chỉ xét ô trống hoặc lớp 1-2 còn chỗ.
+// keepPT: khách xin đổi giờ thì ưu tiên giữ PT cũ; CS tự đổi thì không.
+function moveOptions(c,s0,av,keepPT){
+  const i=s0.bk.findIndex(b=>b.c===c.id),b0=s0.bk.splice(i,1)[0],si=SESS.indexOf(s0),solo=!s0.bk.length;
+  if(solo)SESS.splice(si,1);
+  const out=[];
+  for(const key of av){const[d,h]=key.split('|').map(Number);
+    for(const p of PTS){if(d===s0.d&&h===s0.h&&p.id===s0.p)continue;const r=check(c,d,h,p,{av});if(r.ok)out.push({d,h,p,join:r.join})}}
+  const vals=UORD.filter(id=>id!=='U1'&&on(id)).map(id=>VAL[id](c)).filter(Boolean);
+  const pref=on('U1')&&c.pref;
+  out.forEach(x=>{x.key=[pref&&x.p.id===c.pref?1:0,keepPT&&x.p.id===s0.p?1:0,...vals.map(v=>v(x))];x.tags=optTags(c,x,s0.p)});
+  const cmp=(a,b)=>{for(let i=0;i<a.length;i++)if(a[i]!==b[i])return b[i]-a[i];return 0};
+  out.sort((a,b)=>cmp(a.key,b.key)||a.d-b.d||a.h-b.h||PTS.indexOf(a.p)-PTS.indexOf(b.p));
+  if(solo)SESS.splice(si,0,s0);s0.bk.splice(i,0,b0);
+  return out;
+}
+const metNow=()=>Object.fromEntries(MET.map(m=>[m.id,mval(m.f(snap()))]));
+// x = phương án mới, null = huỷ buổi và ghi buổi nợ
+function applyMove(c,s0,x,reason,req){
+  const before=metNow(),from={d:s0.d,h:s0.h,p:s0.p};
+  s0.bk.splice(s0.bk.findIndex(b=>b.c===c.id),1);
+  if(!s0.bk.length)SESS.splice(SESS.indexOf(s0),1);
+  let s=null;
+  if(x)s=book(c,x,{rule:'CS',ok:true,cs:{reason,phase:WK.locked?'tuan':'chot'}});
+  else WK.debt.push({c:c.id,...from});
+  finalize();
+  const after=metNow(),deltas={};
+  MET.forEach(m=>{if(before[m.id]!==after[m.id])deltas[m.id]=(after[m.id]??0)-(before[m.id]??0)});
+  if(WK.locked)WK.ver++;
+  WK.log.push({ver:WK.locked?WK.ver:null,phase:WK.locked?'tuan':'chot',c:c.id,from,to:x?{d:x.d,h:x.h,p:x.p.id}:null,reason,req,deltas});
+  return s;
+}
+const isTmp=b=>!b.ok&&b.flags.some(f=>f.code[0]==='T'||f.down);
 /*ENGINE-END*/
 
 /* ===== Giao diện ===== */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const SRC={ffl:['FFL nói','ok'],pm:['PM chốt tạm, FFL chưa duyệt','w'],ai:['Máy đề xuất, chưa ai duyệt','w'],base:['Điều kiện nền','']};
-const state={step:1,ran:false,late:false,sel:null,hi:null,prev:null,chg:new Set(),dirty:false,anim:true};
+const state={step:1,ran:false,late:false,sel:null,hi:null,prev:null,chg:new Set(),chg4:new Set(),dirty:false,anim:true,mv:null,opts:null,met:null};
 const keysNow=()=>new Set(SESS.flatMap(s=>s.bk.map(b=>[b.c,s.d,s.h,s.p].join('|'))));
 function doRun(){
   const prev=state.ran?keysNow():null;
@@ -428,6 +506,7 @@ function doRun(){
   state.chg=new Set();
   if(prev)for(const k of keysNow())if(!prev.has(k))state.chg.add(k);
   state.prev=prev;state.ran=true;state.dirty=false;state.sel=null;state.hi=null;
+  resetWeek();state.mv=null;state.met=null;
 }
 function mg(av,sess){
   let h='<div class="mg"><span></span>'+DOWS.map(d=>`<span class="d">${d}</span>`).join('');
@@ -481,16 +560,18 @@ function step2(){
   <div class="rg"><div class="hd">Rule giới hạn <small>ô nào phạm thì bỏ · tham số riêng từng PT</small></div>${grp('G').map(rrow).join('')}</div>
   <div class="rg"><div class="hd">Rule ưu tiên <small>xét từ trên xuống, rule trên hoà mới xét rule dưới · thứ tự là PM chốt tạm 02/10, FFL chưa duyệt</small></div>${UORD.map((id,i)=>rrow(RB[id],i)).join('')}</div>
   ${on('U5')?'':'<div class="note w">Đang tắt "Tỉ lệ ca". Tắt nhiều tuần thì số ca cả tháng sẽ lệch deal với PT.</div>'}
+  ${WK.may?'<div class="note w">Xếp lại sẽ xoá các chỉnh sửa và lịch đã chốt ở bước 4.</div>':''}
   <div class="note">Rule "Ca gãy" chỉ được kiểm sau khi xếp xong cả tuần, vì khoảng trống giữa hai ca có thể được lấp bằng ca xếp sau.</div>
   <div class="acts"><button class="b" data-go="1">← Đầu vào</button><button class="b" data-reset>Về bộ rule mặc định</button><button class="b pri r" data-go="3">${state.ran?'Xếp lại':'Xếp ca'} →</button></div>`;
 }
 const allBk=()=>SESS.flatMap(s=>s.bk.map(b=>({s,b})));
 function sessChip(s){
-  const tmp=s.bk.some(isTmp),chg=s.bk.some(b=>state.chg.has([b.c,s.d,s.h,s.p].join('|')));
+  const CH=state.step===4?state.chg4:state.chg;
+  const tmp=s.bk.some(isTmp),chg=s.bk.some(b=>CH.has([b.c,s.d,s.h,s.p].join('|')));
   const hi=state.hi,dim=hi&&!(hi.t==='c'?s.bk.some(b=>b.c===hi.id):s.p===hi.id);
   return `<button class="ss${tmp?' tmp':''}${chg?' chg':''}${dim?' dim':''}${state.sel===s.id?' sel':''}" data-s="${s.id}">
    <span class="pt"><span>PT ${PB[s.p].short}</span><span>${s.cls}</span></span>
-   ${s.bk.map(b=>`<span class="bk">${esc(CB[b.c].short)}<em class="${isTmp(b)?'t':''}">${isTmp(b)?'Gán tạm · ':''}${LABEL[b.rule]}</em></span>`).join('')}</button>`;
+   ${s.bk.map(b=>`<span class="bk">${esc(CB[b.c].short)}<em class="${isTmp(b)?'t':''}">${isTmp(b)?'Gán tạm · ':b.ok&&b.rule!=='CS'?'CS chốt · ':''}${LABEL[b.rule]}</em></span>`).join('')}</button>`;
 }
 function calendar(){
   const used=h=>SESS.some(s=>s.h===h);
@@ -515,6 +596,7 @@ function stepText(st){
 }
 function traceHTML(b){
   const t=b.trace,c=CB[b.c],li=[];
+  if(!t)return `<div class="muted" style="font-size:13px">CS xếp tay, không qua máy.</div>`;
   li.push(`<li>Rule nền: ${t.base} lựa chọn (ô × PT), gồm ${t.bpts.map(id=>'PT '+PB[id].short).join(', ')||'không PT nào'}.</li>`);
   for(const id in t.cut)li.push(`<li><b>${RB[id].name}</b>: bỏ ${t.cut[id]} lựa chọn.</li>`);
   const p=c.pref?PB[c.pref].short:'';
@@ -591,35 +673,141 @@ function step3(){
   </div>
   ${below()}
   <div class="acts"><button class="b" data-go="2">← Đổi rule rồi xếp lại</button>
-   <button class="b" data-late ${state.late?'disabled':''}>${state.late?'Đã thêm khách gửi trễ':'Có khách gửi trễ (Gia Hân, chọn PT Vy): xếp bổ sung'}</button></div>`;
+   <button class="b" data-late ${state.late||WK.may?'disabled':''}>${state.late?'Đã thêm khách gửi trễ':'Có khách gửi trễ (Gia Hân, chọn PT Vy): xếp bổ sung'}</button>
+   <button class="b pri r" data-go="4">Tiếp: chốt lịch →</button></div>`;
+}
+
+/* ===== Bước 4 ===== */
+// Yêu cầu đổi lịch trong tuần (kịch bản demo). d,h: buổi khách muốn đổi; av: giờ rảnh mới khách báo.
+const REQS=[
+  {c:'truc',d:2,h:8,av:'3,4:17-19',text:'Thứ 4 bận việc, xin dời sang chiều T5 hoặc T6.'},
+  {c:'lan',d:3,h:18,av:'4:17-19',text:'Thứ 5 tăng ca, xin dời sang tối T6.'},
+  {c:'ha',d:4,h:7,av:'4:8;5:8-10',text:'Sáng T6 đưa con đi học, xin lùi 8h hoặc sáng T7.'},
+];
+const REASONS=['Khách yêu cầu','PT xin đổi','CS thấy hợp hơn','Khác'];
+const reqSess=r=>SESS.find(s=>s.d===r.d&&s.h===r.h&&s.bk.some(b=>b.c===r.c));
+const reqDone=i=>WK.log.some(l=>l.req===i);
+const pS=x=>x?`${slotS(x.d,x.h)} · PT ${PB[x.p].short}`:'';
+function delta(m,a,b){
+  if(a==null||b==null)return'<span class="faint">—</span>';
+  const v=b-a;if(!v)return'<span class="faint">0</span>';
+  const good=m.up?v>0:v<0;
+  return `<span class="chip ${good?'ok':'bad'}">${v>0?'▲':'▼'} ${Math.abs(v)}${m.cnt?'':'%'}</span>`;
+}
+function fmt(m,v){
+  if(v.length===2)return v[1]?`<b>${Math.round(v[0]/v[1]*100)}%</b> <span class="faint">${v[0]}/${v[1]}</span>`:'<span class="faint">—</span>';
+  return `<b>${v[0]}${m.cnt?'':'%'}</b>`;
+}
+function metrics(){
+  const now=snap(),A=WK.may,B=WK.chot||now,C=WK.locked?now:null;
+  const rows=MET.map(m=>{const a=m.f(A),b=m.f(B),c=C&&m.f(C);
+    const n=WK.log.filter(l=>l.deltas[m.id]!=null).length;
+    return `<tr class="${state.met===m.id?'sel':''}" data-met="${m.id}" style="cursor:pointer"><td>${m.name}${m.sub?`<br><small class="faint">${m.sub}</small>`:''}${n?` <span class="chip">${n} thay đổi</span>`:''}</td>
+     <td class="n">${fmt(m,a)}</td><td class="n">${fmt(m,b)}</td><td class="n">${C?fmt(m,c):'<span class="faint">—</span>'}</td>
+     <td class="n">${delta(m,mval(a),mval(b))}</td><td class="n">${C?delta(m,mval(b),mval(c)):'<span class="faint">—</span>'}</td></tr>`}).join('');
+  const k1=keep(A,B),k2=C&&keep(B,C);
+  const kr=`<tr><td>Giữ nguyên lịch<br><small class="faint">buổi còn đúng ô và PT so với bản trước</small></td><td class="n"><span class="faint">—</span></td>
+    <td class="n">${fmt({},k1)}</td><td class="n">${C?fmt({},k2):'<span class="faint">—</span>'}</td><td></td><td></td></tr>`;
+  let dr='';
+  if(state.met){const m=MET.find(x=>x.id===state.met),ls=WK.log.filter(l=>l.deltas[m.id]!=null);
+    dr=`<div class="box" style="margin-top:12px"><h3>${m.name}: các thay đổi gây lệch</h3>${ls.length?`<div class="tw"><table><tr><th>Bản</th><th>Khách</th><th>Từ → sang</th><th>Lý do</th><th class="n">Ảnh hưởng</th></tr>
+      ${ls.map(l=>`<tr><td>${l.phase==='tuan'?'v'+l.ver:'Trước chốt'}</td><td>${esc(CB[l.c].short)}</td><td>${pS(l.from)} → ${l.to?pS(l.to):'<b>huỷ, ghi buổi nợ</b>'}</td><td>${l.reason}</td><td class="n">${delta(m,0,l.deltas[m.id])}</td></tr>`).join('')}</table></div>`
+      :'<div class="muted" style="font-size:13.5px">Chưa có thay đổi nào làm lệch tiêu chí này.</div>'}</div>`}
+  return `<div class="tw"><table class="mt"><tr><th>Tiêu chí</th><th class="n">Máy xếp</th><th class="n">${WK.locked?'CS chốt':'CS chốt (đang soạn)'}</th><th class="n">Thực tế</th><th class="n">Máy → chốt</th><th class="n">Chốt → thực tế</th></tr>${rows}${kr}</table></div>
+  <p class="cap">Lệch tính bằng điểm phần trăm, riêng "Lần phạm rule" tính bằng số lần. Xanh là tốt lên, đỏ là xấu đi. Bấm một dòng để xem thay đổi nào gây lệch.</p>${dr}`;
+}
+function reasons(){
+  if(!WK.log.length)return'';
+  const t={};WK.log.forEach(l=>{const k=l.reason;t[k]=t[k]||{chot:0,tuan:0};t[k][l.phase]++});
+  return `<div><h3>Lệch theo lý do</h3><div class="tw"><table><tr><th>Lý do</th><th class="n">Trước chốt</th><th class="n">Trong tuần</th></tr>
+   ${Object.keys(t).map(k=>`<tr><td>${k}</td><td class="n">${t[k].chot}</td><td class="n">${t[k].tuan}</td></tr>`).join('')}</table></div>
+   <p class="cap">Một lý do lặp lại nhiều tuần là tín hiệu FFL nên chốt thành rule.</p></div>`;
+}
+function logBox(){
+  return `<div><h3>Lịch sử thay đổi <span class="chip">${WK.log.length}</span></h3>${WK.log.length?`<div class="tw"><table><tr><th>Bản</th><th>Khách</th><th>Từ → sang</th><th>Lý do</th></tr>
+   ${WK.log.map(l=>`<tr><td>${l.phase==='tuan'?'v'+l.ver:'Trước chốt'}</td><td>${esc(CB[l.c].short)}</td><td>${pS(l.from)} → ${l.to?pS(l.to):'<b>huỷ, ghi buổi nợ</b>'}</td><td>${l.reason}</td></tr>`).join('')}</table></div>`
+   :'<div class="muted" style="font-size:13.5px">Chưa có thay đổi.</div>'}
+   ${WK.debt.length?`<p class="cap">Buổi nợ: ${WK.debt.map(x=>esc(CB[x.c].short)+' ('+slotS(x.d,x.h)+')').join(', ')}.</p>`:''}</div>`;
+}
+function moveBox(){
+  const m=state.mv,s0=SESS.find(x=>x.id===m.sid);if(!s0){state.mv=null;return''}
+  const c=CB[m.c],av=m.av?parseAv(m.av):c.av,opts=moveOptions(c,s0,av,m.av!=null);state.opts=opts;const N=m.all?opts.length:5;
+  const r=m.req!=null?REQS[m.req]:null;
+  return `<div class="box dt fade"><button class="x" data-mvx>Huỷ thao tác</button><h3>Đổi lịch: ${esc(c.name)}</h3>
+   <div class="muted" style="font-size:13px">Đang ở ${slotT(s0.d,s0.h)} · PT ${PB[s0.p].short}</div>
+   ${r?`<div class="fl">${esc(r.text)}<small>Máy tìm theo giờ rảnh mới khách báo.</small></div>`:'<div class="cap">Máy tìm theo giờ rảnh khách khai đầu tuần.</div>'}
+   <label style="display:block;font-size:13px;margin:10px 0 6px">Lý do <select id="rs" class="b" style="height:32px;margin-left:6px">${REASONS.map(x=>`<option${x===(r?'Khách yêu cầu':'CS thấy hợp hơn')?' selected':''}>${x}</option>`).join('')}</select></label>
+   <div class="muted" style="font-size:12.5px;margin:8px 0 4px">${opts.length?`Phương án (${Math.min(opts.length,N)}/${opts.length}), xếp theo bộ rule đã dùng tuần này. Các ca khác giữ nguyên.`:'Không có ô trống nào hợp lệ. CS có thể hỏi khách khác đổi, hoặc huỷ buổi.'}</div>
+   ${opts.slice(0,N).map((x,i)=>`<button class="todo" data-pick="${i}" style="border-left-color:var(--accent)"><b>${i===0?'★ ':''}${slotT(x.d,x.h)} · PT ${x.p.short}</b><span class="used" style="margin-top:4px">${x.tags.map(([t,k])=>`<span class="chip ${k}">${t}</span>`).join('')}</span></button>`).join('')}
+   ${opts.length>N?`<button class="b" data-more style="margin-bottom:8px">Xem thêm ${opts.length-N} phương án</button>`:''}
+   <button class="todo un" data-pick="-1"><b>Huỷ buổi, ghi buổi nợ</b><span>Khách không lấy được ô nào. Buổi này chuyển thành buổi nợ.</span></button></div>`;
+}
+function detail4(){
+  const s=SESS.find(x=>x.id===state.sel);if(!s)return'';
+  return `<div class="box dt fade"><button class="x" data-close>Đóng</button><h3>${slotT(s.d,s.h)}</h3>
+   <div class="muted" style="font-size:13px">PT ${PB[s.p].name} · ${s.kind} lớp ${s.cls}${s.cls==='1-2'?` · ${s.bk.length}/2 chỗ`:''}</div>
+   ${s.bk.map(b=>`<div style="margin-top:10px"><b>${esc(CB[b.c].name)}</b> <span class="chip ${isTmp(b)?'w':'ok'}">${isTmp(b)?'Gán tạm':b.cs?'CS đổi':b.ok?'CS chốt':'Xếp theo rule'}</span>
+    ${b.cs?`<div class="cap">Lý do: ${b.cs.reason} (${b.cs.phase==='tuan'?'trong tuần':'trước khi chốt'})</div>`:''}
+    ${b.flags.filter(f=>!b.ok||f.code==='T5').map(f=>`<div class="fl">${esc(f.text)}${f.hint?`<small>${esc(f.hint)}</small>`:''}</div>`).join('')}
+    <div class="acts" style="margin-top:8px">${isTmp(b)&&!WK.locked?`<button class="b" data-ok="${s.id}|${b.c}">Giữ phương án máy</button>`:''}<button class="b" data-mv="${s.id}|${b.c}">Đổi lịch</button></div></div>`).join('')}</div>`;
+}
+function step4(){
+  const base=WK.locked?WK.chot:WK.may,bk=bkeys(base);
+  state.chg4=new Set([...bkeys(snap())].filter(k=>!bk.has(k)));
+  const tmp=allBk().filter(x=>isTmp(x.b));
+  const head=WK.locked
+    ?`<div class="banner">Đã chốt và gửi lịch bản v1 cho khách và PT. Hiện là <b>bản v${WK.ver}</b>, có <b>${WK.ver-1}</b> thay đổi trong tuần. Mọi thay đổi từ giờ tính vào cột "Thực tế".</div>`
+    :`<div class="banner">CS xử lý các ca gán tạm (giữ phương án máy hoặc đổi), rồi bấm chốt. Chỉnh sửa lúc này tính vào cột "CS chốt".
+      <div class="acts" style="margin-top:10px"><button class="b pri" data-lock>Chốt lịch, gửi khách và PT</button><span class="muted" style="font-size:13px">${tmp.length?`Còn ${tmp.length} buổi gán tạm, vẫn chốt được.`:'Không còn buổi gán tạm.'}</span></div></div>`;
+  const rail=WK.locked
+    ?`<div class="box"><h3>Yêu cầu đổi trong tuần</h3>${REQS.map((r,i)=>{const s=reqSess(r),dn=reqDone(i);
+       return `<button class="todo${dn?'':''}" data-req="${i}" ${dn||!s?'disabled':''} style="${dn?'opacity:.55;border-left-color:var(--accent)':''}"><b>${esc(CB[r.c].short)} · ${slotS(r.d,r.h)}</b><span>${esc(r.text)}</span><span class="hint">${dn?'Đã xử lý':s?'Bấm để xem phương án':'Không thấy buổi này trên lịch'}</span></button>`}).join('')}<p class="cap">Kịch bản demo. Thật ra CS nhận qua điện thoại hoặc Zalo rồi bấm "Đổi lịch" trên ca.</p></div>`
+    :`<div class="box"><h3>Chờ CS chốt <span class="chip ${tmp.length?'w':''}">${tmp.length}</span></h3>${tmp.map(({s,b})=>`<button class="todo" data-s="${s.id}"><b>${esc(CB[b.c].short)} · ${slotS(s.d,s.h)} · PT ${PB[s.p].short}</b><span>${esc(b.flags.find(f=>f.code[0]==='T'||f.down).text)}</span></button>`).join('')||'<div class="muted" style="font-size:13.5px">Không còn ca nào.</div>'}</div>`;
+  return `${head}<div class="l3"><div class="rail">${rail}</div>
+   <div>${calendar()}<div class="lg"><span><i></i>xếp theo rule</span><span><i class="t"></i>gán tạm</span><span><i class="c"></i>${WK.locked?'khác lịch đã chốt':'khác bản máy xếp'}</span><span>Bấm một ca để chốt hoặc đổi lịch.</span></div></div>
+   <div class="side">${state.mv?moveBox():detail4()}</div></div>
+   <h2 style="margin-top:24px">Chỉ số theo tiêu chí</h2><p class="sub">So bản máy xếp, bản CS chốt đầu tuần và lịch thực tế sau các lần đổi trong tuần.</p>${metrics()}
+   <div class="below">${logBox()}${reasons()}</div>
+   <div class="acts"><button class="b" data-go="3">← Kết quả máy xếp</button></div>`;
 }
 function render(){
-  $('#steps').innerHTML=[['1','Đầu vào'],['2','Rule'],['3','Kết quả']].map(([n,t],i)=>`${i?'<span class="sp">›</span>':''}<button role="tab" aria-selected="${state.step==n}" data-go="${n}"><span class="no">${n}</span>${t}</button>`).join('');
+  $('#steps').innerHTML=[['1','Đầu vào'],['2','Rule'],['3','Kết quả'],['4','Chốt & trong tuần']].map(([n,t],i)=>`${i?'<span class="sp">›</span>':''}<button role="tab" aria-selected="${state.step==n}" data-go="${n}"><span class="no">${n}</span>${t}</button>`).join('');
   const app=$('#app');
-  app.innerHTML=state.step===1?step1():state.step===2?step2():step3();
+  app.innerHTML=state.step===1?step1():state.step===2?step2():state.step===3?step3():step4();
   app.classList.toggle('fade',state.anim);state.anim=false;
 }
 function go(n){
   n=+n;
-  if(n===3&&(!state.ran||state.dirty))doRun();
+  if(n>=3&&(!state.ran||state.dirty))doRun();
+  if(n===4&&!WK.may)WK.may=snap();
+  if(n!==4)state.mv=null;
   if(n!==state.step){state.step=n;state.anim=true;window.scrollTo(0,0)}
   render();
 }
 document.addEventListener('click',e=>{
-  const t=e.target.closest('[data-go],[data-tg],[data-up],[data-dn],[data-reset],[data-s],[data-hc],[data-hp],[data-close],[data-late]');
+  const t=e.target.closest('[data-go],[data-tg],[data-up],[data-dn],[data-reset],[data-s],[data-hc],[data-hp],[data-close],[data-late],[data-mv],[data-ok],[data-pick],[data-mvx],[data-lock],[data-req],[data-met],[data-more]');
   if(!t||t.disabled)return;const d=t.dataset;
   if(d.go)return go(d.go);
   if(d.tg){CFG[d.tg].on=!CFG[d.tg].on;state.dirty=true}
   else if(d.up||d.dn){const id=d.up||d.dn,i=UORD.indexOf(id),j=i+(d.up?-1:1);if(j>=1&&j<UORD.length){[UORD[i],UORD[j]]=[UORD[j],UORD[i]];state.dirty=true}}
   else if('reset' in d){defaultCfg();state.dirty=true}
-  else if(d.s){const id=+d.s;state.sel=state.sel===id?null:id}
+  else if(d.mv){const[sid,c]=d.mv.split('|');state.mv={sid:+sid,c,av:null,req:null}}
+  else if(d.req){const r=REQS[+d.req],s=reqSess(r);if(s){state.sel=s.id;state.mv={sid:s.id,c:r.c,av:r.av,req:+d.req}}}
+  else if(d.ok){const[sid,c]=d.ok.split('|');const s=SESS.find(x=>x.id===+sid);s.bk.find(b=>b.c===c).ok=true}
+  else if('mvx' in d)state.mv=null;
+  else if('more' in d)state.mv.all=true;
+  else if(d.pick){const m=state.mv,s0=SESS.find(x=>x.id===m.sid),c=CB[m.c],x=+d.pick<0?null:state.opts[+d.pick];
+    const ns=applyMove(c,s0,x,$('#rs').value,m.req);state.sel=ns?ns.id:null;state.mv=null}
+  else if('lock' in d){WK.chot=snap();WK.locked=true;WK.ver=1;state.sel=null;state.mv=null}
+  else if(d.met)state.met=state.met===d.met?null:d.met;
+  else if(d.s){const id=+d.s;state.sel=state.sel===id?null:id;state.mv=null}
   else if(d.hc){state.hi=state.hi&&state.hi.id===d.hc?null:{t:'c',id:d.hc};state.sel=null}
   else if(d.hp){state.hi=state.hi&&state.hi.id===d.hp?null:{t:'p',id:d.hp};state.sel=null}
   else if('close' in d)state.sel=null;
   else if('late' in d){state.late=true;const prev=keysNow();addLate();state.chg=new Set([...keysNow()].filter(k=>!prev.has(k)));state.sel=null;state.hi=null}
   render();
 });
-defaultCfg();seed();render();
+defaultCfg();seed();resetWeek();render();
 </script>
 </body>
 </html>

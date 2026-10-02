@@ -48,6 +48,13 @@ Còn 2 câu từ trước, cậu chưa xác nhận:
 
 **Bản thiết kế gom tất cả:** `may-xep-ca-v2-thiet-ke.md` (đọc file đó trước khi dựng máy v2). Câu còn mở nằm ở cuối file đó.
 
+**Câu mới về đổi lịch trong tuần (2026-10-02, chưa hỏi chị quản lý):**
+1. Đổi trước giờ tập bao lâu thì không mất buổi? (đang tạm giả định: đổi trong 3 tiếng trước giờ tập thì ca cũ vẫn tính)
+2. Mỗi khách được đổi tối đa mấy lần/tuần hoặc /tháng?
+3. Có được hỏi khách khác đổi để nhường ô không, hay chỉ xếp vào ô trống?
+4. Buổi không đổi được thì chuyển tuần sau hay mất? (trùng câu buổi bù)
+5. Khách đổi thẳng với PT qua Zalo: PT có phải báo CS cập nhật không?
+
 ## Danh sách đầy đủ
 
 ### 1. Phía khách
