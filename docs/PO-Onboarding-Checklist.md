@@ -129,6 +129,49 @@ Mục tiêu: có một list để mang đi nói chuyện, không phải để t�
 | Số trên web khác số trong file nguồn | Có bug, hoặc có 2 định nghĩa khác nhau cho 1 metric |
 | Không có backup / không restore được | Một lệnh sai là mất sạch |
 
+### Invariant & Data Health — bắt buộc nếu data đến từ Sheet/Excel/nguồn ngoài
+
+> **Google Sheet là một database không có constraint.** Invariant check là cách lấy lại những constraint đã mất.
+
+Trong DB, cột kiểu số thì không ai nhét chữ vào được, `NOT NULL` thì không ai để trống được. Trên Sheet thì **ai cũng làm được tất cả những điều đó**, mọi lúc, và **không báo lỗi**. Tệ hơn: sau đó dashboard cũng không lỗi — nó hiện số `0`. Người dùng nhìn vào và nghĩ *"kỳ này bán kém"*, trong khi sự thật là data vỡ.
+
+**Với sản phẩm báo cáo, nhầm "data vỡ" thành "kinh doanh kém" là kiểu lỗi tệ nhất có thể có.**
+
+- [ ] Liệt kê các **invariant** — điều phải luôn đúng, sai là data vỡ. Gợi ý khởi điểm:
+  - [ ] Các cột bắt buộc còn tồn tại, đúng tên (có người chèn cột / đổi tên cho dễ nhìn)
+  - [ ] Mọi khoá tham chiếu (slug/id) ở bảng con **đều tồn tại** ở bảng gốc
+  - [ ] Ô số parse được thành số — `1,5` / `$6,500` / `6.500` phải báo lỗi, **không được coi là 0**
+  - [ ] Mỗi bản ghi có đúng 1 người phụ trách; không bản ghi nào bị bỏ trống người phụ trách
+  - [ ] Tổng ở mức gộp = tổng các phần, kiểm ở **mọi** mức tổng hợp
+  - [ ] Không trùng lặp ở các cặp khoá nghiệp vụ
+  - [ ] Mọi hằng số config đã đưa ra Sheet đều có khoảng giá trị hợp lệ
+- [ ] Chốt **3 tầng chạy**: ① khi đọc (parse time) ② trước khi ghi (pre-condition + đọc lại xác nhận sau khi ghi) ③ chạy định kỳ mỗi sáng
+- [ ] Nguyên tắc xử lý khi vỡ: **báo lỗi rõ ràng, tuyệt đối không hiện số 0 hay bảng trống**
+
+> ⚠️ Mỗi lần biến một hằng số trong code thành một ô trên Sheet là bạn **đổi thứ an toàn thành thứ ai cũng sửa được**. Phải thêm invariant kèm theo — nếu không, đó là downgrade chứ không phải cải tiến. (VD: `ROI = 6.5` đưa ra sheet, có người gõ `65` → toàn bộ ngân sách sai 10 lần mà trông vẫn hợp lý.)
+
+**Phân biệt với Acceptance Criteria:**
+
+> **AC kiểm một lần, lúc nghiệm thu. Invariant kiểm mãi mãi, lúc đang chạy thật.**
+
+Một AC dạng *"tổng = tổng các phần"* pass ngày nghiệm thu **không** đảm bảo nó còn đúng 3 tháng sau, khi có người thêm cột vào sheet. Biến nó thành assertion trong code thì nó canh giúp bạn vĩnh viễn.
+
+### Alert — tách làm hai, đừng gộp
+
+- [ ] **Nhóm A — Data health alert → gửi cho bạn + dev. Làm sớm, rẻ, cứu bạn nhiều lần:**
+  - [ ] Sync lỗi, hoặc chạy xong mà trả về **0 dòng**
+  - [ ] Một nguồn data không cập nhật **> 24h** (phát hiện luồng chết lặng)
+  - [ ] Số tổng **tụt > 50%** so với kỳ trước → gần như luôn là lỗi data, không phải lỗi kinh doanh
+  - [ ] Chạm **80% quota** của nguồn ngoài — cảnh báo *trước* khi vỡ, không phải lúc đã vỡ
+  - [ ] Bất kỳ invariant định kỳ nào vỡ
+  - [ ] Gửi vào group riêng **chỉ bạn + dev**. Đừng gửi vào group nghiệp vụ — 2 tuần sau cả team mute group
+- [ ] **Nhóm B — Business alert cho người dùng (chậm target, sắp trễ hạn…). Làm sau:**
+  - [ ] Chỉ làm khi **con số đã được người dùng xác nhận là đúng**
+  - [ ] Gửi alert dựa trên số chưa đáng tin = **dạy người dùng bỏ qua alert của bạn**, và niềm tin đó rất khó lấy lại
+
+> **Luật giữ alert sống:** alert nổ mà **không ai làm gì** → sửa ngưỡng, hoặc xoá nó. Alert bị bỏ qua tệ hơn không có alert, vì nó dạy cả team rằng alert là thứ để ngó qua.
+
+
 ---
 
 ## Phase 5 — Triển khai (rollout & adoption)
@@ -182,9 +225,10 @@ Phần này hay bị bỏ qua, nhưng *"web có rồi mà không ai dùng"* là 
 - [ ] **Business Rules** — các quy tắc nghiệp vụ, viết dạng câu phán xử được
 - [ ] **User Story + AC** — chỉ cho việc đang build, **không viết hồi tố** cho feature đã ship
 - [ ] **Technical Debt Backlog** — chỉ là một bảng chạy liên tục, rẻ nhất mà hữu ích nhất
+- [ ] **Invariants & Data Health** — danh sách điều phải luôn đúng + alert khi vỡ (xem Phase 4). **Bắt buộc** nếu data đến từ Sheet/Excel/nguồn ngoài
 
 ### Tier 2 — sau khi đợt việc hiện tại ship xong
-- [ ] **Definition of Done** — gọn 5 dòng. Phải có dòng *"đã lên prod và người dùng thật đã xác nhận"*
+- [ ] **Definition of Done** — gọn 5 dòng. Phải có 2 dòng: *"đã lên prod và người dùng thật đã xác nhận"* và *"logic mới có invariant check tương ứng, đã test case vỡ"*
 - [ ] **Regression checklist thủ công** — chưa cần automation, xem Phụ lục D
 - [ ] **Definition of Ready** — chỉ làm khi đã có luồng nhận yêu cầu đều đặn
 
@@ -198,6 +242,15 @@ Phần này hay bị bỏ qua, nhưng *"web có rồi mà không ai dùng"* là 
 - [ ] Business rule viết dạng kiểm được:
   - ❌ "Hệ thống xử lý commission"
   - ✅ "Commission = GMV × rate theo tier. Tier chốt theo ngày cuối tháng. Đơn refund trừ ngược vào tháng phát sinh."
+- [ ] Business rule phải viết sao cho **không còn cách đọc thứ hai**
+  - ❌ "max(5, làm tròn lên số giờ × 5)" → đọc được 2 kiểu: `ceil(1.5 × 5) = 8` hay `ceil(1.5) × 5 = 10`?
+  - ✅ "max(5, ceil(số giờ) × 5)" + bảng ví dụ: `1h→5 · 1.5h→10 · 2h→10 · 2.5h→15`
+  - → Loại bug này **không ai phát hiện khi test**, vì cả 8 và 10 đều "trông hợp lý"
+- [ ] Mỗi rule có **trạng thái**: `Đã chốt` / `Đề xuất` / `Chờ chốt` / `Hiện trạng`
+  - ⚠️ Rule gắn nhãn *Hiện trạng* là **giả thuyết cần kiểm chứng**, không phải sự thật — nó thường do người khác (hoặc AI) suy ra từ code. Kiểm tay trước khi tin, nhất là các rule về độ tươi data, múi giờ, và nguồn số
+- [ ] Đừng để **AC nói một đằng, Tech Debt nói một nẻo**
+  - Nếu tech debt ghi *"chưa có khoá, 2 người ghi cùng lúc sẽ trùng"* mà AC ghi *"trùng thì chặn"* → đó chính là cách một bug được **nghiệm thu pass**
+  - Chốt hẳn: hoặc xử lý, hoặc ghi rõ "đã biết và chấp nhận ở đợt này". Không để lửng
 
 > 📌 Doc cũ mà người ta vẫn tin còn nguy hiểm hơn doc không tồn tại.
 
@@ -262,7 +315,22 @@ Chạy lại sau **mỗi lần** release. Với sản phẩm dashboard, bug ch�
 
 ---
 
-## Phụ lục E — Mốc 30 / 60 / 90 ngày
+## Phụ lục E — Cạm bẫy metric thường gặp
+
+Mấy cái này trông hiển nhiên nhưng rất hay lọt. Và lọt thì hậu quả không phải "sai một con số" — mà là **người dùng mất tin vào sản phẩm**.
+
+| Cạm bẫy | Biểu hiện | Cách đúng |
+|---|---|---|
+| **So lũy kế với target cả kỳ** | Ngày 3 của tháng, *mọi* đối tượng đều bị gắn cờ "chậm target" → báo động đỏ suốt nửa đầu tháng → người dùng ngừng tin cái nhắc việc đó | So với **tiến độ kỳ vọng**: `pace = thực tế ÷ (target × ngày đã qua ÷ ngày trong kỳ)`. Rồi mới phân nhãn theo pace |
+| **Thiếu dữ liệu bị tính là 0** | Chưa nhập target → hiện 0% → bị xếp vào nhóm tệ nhất, và lọt vào alert | Thiếu dữ liệu là **"chưa có"**, không phải 0. Không tính vào xếp hạng, không gắn cờ |
+| **"Hôm nay" theo múi giờ nào** | Phiên 23:30 giờ US = 10:30 hôm sau giờ VN → nó thuộc "hôm nay" của ai? | Chốt rõ bằng một business rule. **Đừng để case test tự quyết** — test không có rule thì test cái gì |
+| **Trùng số nhưng cùng sai** | Hai màn hình khớp nhau nên coi là đúng | Đối chiếu với **nguồn gốc bên ngoài** ít nhất 1 kỳ, không chỉ đối chiếu nội bộ |
+| **Không ai biết ngày chốt số** | Số thay đổi ngược về quá khứ (refund, đơn huỷ) mà không ai biết | Ghi rõ: chốt lúc nào, sau đó còn đổi được không, đổi thì tính vào kỳ nào |
+| **Không hiện giờ cập nhật** | Người dùng hỏi "số này mới chưa" và không ai trả lời được | Hiện `Cập nhật lúc: HH:mm` trên mọi màn hình, lấy từ **lần sync thành công cuối**, không phải giờ hệ thống. Sync chết thì dòng này đứng im → người dùng tự phát hiện, khỏi cần alert |
+
+---
+
+## Phụ lục F — Mốc 30 / 60 / 90 ngày
 
 ### 30 ngày đầu — hiểu, chưa hứa
 - [ ] Xong Phase 0 → 3
