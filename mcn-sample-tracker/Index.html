@@ -1152,8 +1152,12 @@
                 const btn = document.getElementById("btnSaveSample");
                 btn.disabled = true;
                 google.script.run
-                    .withSuccessHandler(() => {
+                    .withSuccessHandler(res => {
                         btn.disabled = false;
+                        if (res && res.success === false) {
+                            alert("❌ Lỗi lưu xuống Google Sheet: " + res.message);
+                            return;
+                        }
                         onSaved();
                         syncDataFromGAS();
                     })
@@ -1161,7 +1165,7 @@
                         btn.disabled = false;
                         alert("❌ Lỗi lưu xuống Google Sheet: " + (err && err.message ? err.message : err));
                     })
-                    .addSample(newRecord);
+                    .addMasterRecord(newRecord);
             } else {
                 // Chạy thử ngoài GAS: chỉ lưu tạm trên trình duyệt
                 sampleData.unshift(newRecord);
